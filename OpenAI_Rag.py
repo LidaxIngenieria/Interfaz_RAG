@@ -140,9 +140,11 @@ class OpenAI_Rag(Chroma_Rag):
         self.conversation_memory.add_message("system", full_response)
 
         print("\nDocuments used:")
-        for i, metadata in enumerate(top_metadatas):
+        for i, (document, metadata) in enumerate(zip(top_documents, top_metadatas)):
             file_path = metadata.get('source', f"Document {i+1}")
-            print(f"\nDocument {i+1}: {file_path}")
+            print(f"\nDocument : {file_path}")
+            print(f"\n{document}")
+
 
 
     def invoke_api(self, query: str) -> dict:
