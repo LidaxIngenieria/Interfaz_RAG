@@ -1,0 +1,30 @@
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Ignorar todas las carpetas 
+/*/
+
+# EXCEPTIONES
+!/src/
+!/docs/
+!/tests/
+!/scripts/
+!/config/
