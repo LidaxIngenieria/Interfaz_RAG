@@ -8,7 +8,8 @@ SYSTEM_PROMPT = """You are an expert research assistant. Follow these rules stri
 1. Answer questions using ONLY the provided context
 2. If context is insufficient, clearly state what information is missing
 3. Cite relevant parts of the context in your response
-4. Never hallucinate or invent information"""
+4. Never hallucinate or invent information
+5.  You can use conversation history if provided but only use it if its relevant to current query, only cite retrieved documents"""
 
 class OpenAI_Rag(Chroma_Rag):
     """
@@ -142,3 +143,51 @@ class OpenAI_Rag(Chroma_Rag):
         for i, metadata in enumerate(top_metadatas):
             file_path = metadata.get('source', f"Document {i+1}")
             print(f"\nDocument {i+1}: {file_path}")
+
+
+    def invoke_api(self, query: str) -> dict:
+
+        self.conversation_memory.add_message("user", query)
+
+        relevant_messages = self.conversation_memory.get_full_history()
+
+        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+
+        init_results = self.retrieve(query)
+        init_documents = init_results['documents'][0]
+        init_metadatas = init_results.get('metadatas', [[]])[0]
+
+        reranked_docs, reranked_metadatas = self.rerank_documents(query, init_documents, init_metadatas)
+        top_documents = reranked_docs[:5]
+        top_metadatas = reranked_metadatas[:5]
+        
+        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(top_documents)])
+
+        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+
+        response = self.client.chat.completions.create(
+            model=self.llm,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": manual_prompt}
+            ],
+            stream=False,
+        )
+        
+        answer = response.choices[0].message.content
+        self.conversation_memory.add_message("system", answer)
+
+        sources = []
+
+        for i, (metadata, doc_content) in enumerate(zip(top_metadatas, top_documents)):
+            sources.append({
+                "id": i + 1,
+                "title": metadata.get('source', f"Document {i+1}"),
+                "content": doc_content[:200] + "..." if len(doc_content) > 200 else doc_content
+            })
+        
+        return {
+            "answer": answer,
+            "sources": sources,  # This should be list of dicts
+            "query": query  # Don't forget this field!
+        }
