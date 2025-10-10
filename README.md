@@ -21,7 +21,7 @@ Instrucciones
 
             O configurar directamente en el código:
 
-            OpenAI_RAGclient, linea 37 = OpenAI(api_key="tu-api-key-aqui")
+            OpenAI_RAG, linea 37 client = OpenAI(api_key="tu-api-key-aqui")
 
     3. Para OLlama:
 
