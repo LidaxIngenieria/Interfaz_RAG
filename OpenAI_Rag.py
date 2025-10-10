@@ -60,7 +60,10 @@ class OpenAI_Rag(Chroma_Rag):
             query (str): Consulta del usuario a procesar
         """
 
-        documents = self.retrieve(query)
+        results = self.retrieve(query)
+        documents = results['documents'][0]
+        metadatas = results.get('metadatas', [[]])[0]
+
         context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
 
         manual_prompt = f"Context: {context}\n\nQuestion: {query}"
@@ -78,8 +81,12 @@ class OpenAI_Rag(Chroma_Rag):
         for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 print(chunk.choices[0].delta.content, end='', flush=True)
-            
 
+        print("\nDocuments used:")
+        for i, metadata in enumerate(metadatas):
+            file_path = metadata.get('source', f"Document {i+1}")
+            print(f"\nDocument {i+1}: {file_path}")
+            
 
     def invoke_rerank(self, query: str) -> None:
         """
@@ -100,16 +107,18 @@ class OpenAI_Rag(Chroma_Rag):
 
         conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
 
-        documents = self.retrieve(query)
 
-        reranked_docs = self.rerank_documents(query, documents)
+        init_results = self.retrieve(query)
+        init_documents = init_results['documents'][0]
+        init_metadatas = init_results.get('metadatas', [[]])[0]
+
+        reranked_docs, reranked_metadatas = self.rerank_documents(query, init_documents, init_metadatas)
         top_documents = reranked_docs[:3]
+        top_metadatas = reranked_metadatas[:3]
         
         context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(top_documents)])
 
         manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
-
-        manual_prompt = f"Context: {context}\n\nQuestion: {query}"
 
         stream = self.client.chat.completions.create(
             model=self.llm,
@@ -120,7 +129,7 @@ class OpenAI_Rag(Chroma_Rag):
             stream=True,
         )
 
-        full_response = ""    
+        full_response = "\n"   
         for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 response_text = chunk.choices[0].delta.content
@@ -128,3 +137,8 @@ class OpenAI_Rag(Chroma_Rag):
                 full_response += response_text
         
         self.conversation_memory.add_message("system", full_response)
+
+        print("\nDocuments used:")
+        for i, metadata in enumerate(top_metadatas):
+            file_path = metadata.get('source', f"Document {i+1}")
+            print(f"\nDocument {i+1}: {file_path}")

@@ -1,5 +1,5 @@
-import PyPDF2
-import docx
+from PyPDF2 import PdfReader
+from docx import Document 
 import os
 import hashlib
 import glob
@@ -15,7 +15,7 @@ def read_pdf(file_path: str) -> str:
     """
     text = ""
     with open(file_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
+        reader = PdfReader(file)
         for page in reader.pages:
             text += page.extract_text() + "\n"
     return text
@@ -28,7 +28,7 @@ def read_docx(file_path: str) -> str:
         file_path (str): Ruta al archivo DOCX/DOC
 
     """
-    doc = docx.Document(file_path)
+    doc = Document(file_path)
     text = ""
     for paragraph in doc.paragraphs:
         text += paragraph.text + "\n"

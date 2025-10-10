@@ -8,10 +8,10 @@ CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
 
 #Si cambias el modelo de embeddings crear una carpeta nueva para los vectores.
-EMBED_MODEL_NAME = "nomic-embed-text" #"text-embedding-3-small"
-LLM_NAME = "rag-memory-3" #"gpt-3.5-turbo" 
+EMBED_MODEL_NAME = "text-embedding-3-small"
+LLM_NAME =  "gpt-3.5-turbo" 
 
-CHROMA_DIRECTORY = "chroma_ollama_vdb" #"chroma_openai_vdb"# Si no lo encuentra lo crea automaticamente
+CHROMA_DIRECTORY =  "chroma_openai_vdb"# Si no lo encuentra lo crea automaticamente
 CLIENT_CHROMA = PersistentClient()
 VECTOR_STORE= CLIENT_CHROMA.get_or_create_collection(CHROMA_DIRECTORY)
 
@@ -22,9 +22,9 @@ RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 def main():
 
-    #rag = OpenAI_Rag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER)
+    rag = OpenAI_Rag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER)
 
-    rag = OllamaRag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER,k=10)
+    #rag = OllamaRag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER,k=10)
 
 
     while True:

@@ -198,7 +198,7 @@ class Chroma_Rag(ABC):
             return(f"\nError occurred when updating files: {e}")
 
         
-    def retrieve(self,query: str) -> List[str]:
+    def retrieve(self,query: str):
         """
         Recupera documentos relevantes de la base de datos vectorial.
 
@@ -212,11 +212,12 @@ class Chroma_Rag(ABC):
             n_results= self.k,
         )
 
-        documents = results['documents'][0]
-        return documents
+        return results
+        #documents = results['documents'][0]
+        #return documents
     
     
-    def rerank_documents(self, query: str, documents: List[str]) -> List[str]:
+    def rerank_documents(self, query: str, init_docs: List[str], init_metadatas: List[dict]) -> List[str]:
         """
         Reordena documentos recuperados usando el modelo de reranking para mejorar la relevancia.
 
@@ -226,14 +227,17 @@ class Chroma_Rag(ABC):
             
         """
 
-        pairs = [[query, doc] for doc in documents]
+        pairs = [[query, doc] for doc in init_docs]
         
         scores = self.reranker.predict(pairs)
 
-        scored_docs = list(zip(documents, scores))
-        scored_docs.sort(key=lambda x: x[1], reverse=True)
+        scored_docs = list(zip(init_docs, init_metadatas, scores))
+        scored_docs.sort(key=lambda x: x[2], reverse=True)
 
-        return [doc for doc, score in scored_docs]
+        reranked_documents = [doc for doc, metadata, score in scored_docs]
+        reranked_metadatas = [metadata for doc, metadata, score in scored_docs]
+
+        return reranked_documents, reranked_metadatas
     
 
     @abstractmethod
