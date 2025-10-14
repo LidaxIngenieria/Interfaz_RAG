@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
@@ -10,10 +10,7 @@ from contextlib import asynccontextmanager
 load_dotenv()
 
 # Import your existing RAG code
-from Chroma_Rag import Chroma_Rag
 from OpenAI_Rag import OpenAI_Rag
-from openai import OpenAI
-from typing import Any
 from chromadb import PersistentClient
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
@@ -21,7 +18,7 @@ from sentence_transformers import CrossEncoder
 # Request/Response models
 class QueryRequest(BaseModel):
     query: str
-    use_rerank: bool = False
+
 
 class QueryResponse(BaseModel):
     answer: str
@@ -41,7 +38,7 @@ async def lifespan(app: FastAPI):
     EMBED_MODEL_NAME = "text-embedding-3-small"
     LLM_NAME = "gpt-3.5-turbo" 
 
-    CHROMA_DIRECTORY = "chroma_openai_vdb"
+    CHROMA_DIRECTORY = "chroma_lidax_vdb"
     CLIENT_CHROMA = PersistentClient()
     VECTOR_STORE = CLIENT_CHROMA.get_or_create_collection(CHROMA_DIRECTORY)
 
@@ -79,7 +76,7 @@ async def root():
 @app.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     try:
-        print(f"Received query: {request.query}, use_rerank: {request.use_rerank}")
+        print(f"Received query: {request.query}")
         
         if rag_system is None:
             return {

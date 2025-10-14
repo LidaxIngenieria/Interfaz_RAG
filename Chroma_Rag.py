@@ -26,7 +26,8 @@ class Chroma_Rag(ABC):
                 vector_store: Any, 
                 text_splitter: Any, 
                 reranker: Any= None,
-                k: int= 5):
+                k: int= 5,
+                top_k: int= 3):
         
         self.embedding_model = embedding_model
         self.llm = llm
@@ -34,6 +35,7 @@ class Chroma_Rag(ABC):
         self.text_splitter = text_splitter
         self.reranker = reranker
         self.k = k
+        self.top_k = top_k
 
         self.conversation_memory = ConversationMemory()
 
@@ -78,6 +80,7 @@ class Chroma_Rag(ABC):
             for path in expanded_paths:
                 if self.is_file_in_store(path):
                     print(f"\n{path} already on vdb moving to next file")
+                    i += 1
                     continue
 
                 documents, ids = smart_doc_processing(self.text_splitter,path)
@@ -269,3 +272,10 @@ class Chroma_Rag(ABC):
             query (str): Consulta del usuario a procesar con reranking
         """
         pass
+
+    @abstractmethod
+    def invoke_api(self, query: str) -> dict:
+        pass
+
+    
+

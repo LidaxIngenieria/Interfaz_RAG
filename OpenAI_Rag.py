@@ -1,6 +1,7 @@
 from Chroma_Rag import Chroma_Rag
 from openai import OpenAI
 from typing import Any
+from chromadb import PersistentClient
 
 # export "OPENAI_API_KEY" = ""
 
@@ -29,14 +30,21 @@ class OpenAI_Rag(Chroma_Rag):
     def __init__(self, 
                 embedding_model: str,
                 llm: str,
-                vector_store: Any, 
                 text_splitter: Any, 
                 reranker: Any = None,
-                k: int = 5):
+                k: int = 5,
+                top_k: int = 3):
         
         self.client = OpenAI()
 
+        chroma_collection = embedding_model + "_vdb"# Si no lo encuentra lo crea automaticamente
+        client_chroma = PersistentClient()
+        vector_store= client_chroma.get_or_create_collection(chroma_collection)
+
+
+
         super().__init__(embedding_model, llm, vector_store, text_splitter, reranker, k)
+
 
     
     def get_embeddings(self, text: str) -> str:
@@ -160,8 +168,8 @@ class OpenAI_Rag(Chroma_Rag):
         init_metadatas = init_results.get('metadatas', [[]])[0]
 
         reranked_docs, reranked_metadatas = self.rerank_documents(query, init_documents, init_metadatas)
-        top_documents = reranked_docs[:5]
-        top_metadatas = reranked_metadatas[:5]
+        top_documents = reranked_docs[:self.top_k]
+        top_metadatas = reranked_metadatas[:self.top_k]
         
         context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(top_documents)])
 
@@ -185,11 +193,13 @@ class OpenAI_Rag(Chroma_Rag):
             sources.append({
                 "id": i + 1,
                 "title": metadata.get('source', f"Document {i+1}"),
-                "content": doc_content[:200] + "..." if len(doc_content) > 200 else doc_content
+                "content": doc_content
+                #"content": doc_content[:200] + "..." if len(doc_content) > 200 else doc_content
             })
         
         return {
             "answer": answer,
-            "sources": sources,  # This should be list of dicts
-            "query": query  # Don't forget this field!
+            "sources": sources,  
+            "query": query  
         }
+    

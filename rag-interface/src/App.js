@@ -70,7 +70,6 @@ function App() {
         answer: result.answer,
         sources: result.sources,
         timestamp: new Date().toLocaleTimeString(),
-        useRerank: useRerank
       }]);
       
       setQuery('');
@@ -113,7 +112,6 @@ function App() {
                   <div className="question">
                     <strong>Q: </strong>{chat.question}
                     <span className="timestamp">{chat.timestamp}</span>
-                    {chat.useRerank && <span className="rerank-badge">Reranked</span>}
                   </div>
                   <div className="answer">
                     <strong>A: </strong>{chat.answer}
@@ -145,16 +143,6 @@ function App() {
                 {loading ? 'Thinking...' : 'Ask'}
               </button>
             </div>
-            <div className="settings-group">
-              <label className="rerank-toggle">
-                <input
-                  type="checkbox"
-                  checked={useRerank}
-                  onChange={(e) => setUseRerank(e.target.checked)}
-                />
-                Use Advanced Reranking
-              </label>
-            </div>
           </form>
 
           {/* Current Response */}
@@ -176,9 +164,6 @@ function App() {
                   <div key={source.id} className="source-item">
                     <div className="source-header">
                       <span className="source-title">{source.title}</span>
-                      <span className="similarity">
-                        {(source.similarity * 100).toFixed(1)}% match
-                      </span>
                     </div>
                     <div className="source-content">
                       {source.content}

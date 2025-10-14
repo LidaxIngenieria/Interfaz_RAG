@@ -1,6 +1,5 @@
 from OllamaRag import OllamaRag
 from OpenAI_Rag import OpenAI_Rag
-from chromadb import PersistentClient
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
@@ -11,10 +10,6 @@ CHUNK_OVERLAP = 200
 EMBED_MODEL_NAME = "text-embedding-3-small"
 LLM_NAME =  "gpt-3.5-turbo" 
 
-CHROMA_DIRECTORY =  "chroma_openai_vdb"# Si no lo encuentra lo crea automaticamente
-CLIENT_CHROMA = PersistentClient()
-VECTOR_STORE= CLIENT_CHROMA.get_or_create_collection(CHROMA_DIRECTORY)
-
 TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
 
 RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
@@ -22,7 +17,7 @@ RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 def main():
 
-    rag = OpenAI_Rag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER)
+    rag = OpenAI_Rag(EMBED_MODEL_NAME,LLM_NAME, TEXT_SPLITTER, RERANKER, k=10,top_k=3)
 
     #rag = OllamaRag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER,k=10)
 
