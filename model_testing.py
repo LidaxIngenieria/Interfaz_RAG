@@ -36,7 +36,7 @@ def main():
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        output_file = f"{OUTPUT_DIR}/respuestas_{rag.llm}_{rag.embedding_model}_{rag.k}_{rag.top_k}.csv"
+        output_file = f"{OUTPUT_DIR}/respuestas_{rag.llm}_{rag.embedding_model}_{rag.k}_{rag.top_k}.txt"
 
 
         with open(output_file, 'w', encoding='utf-8') as file:
