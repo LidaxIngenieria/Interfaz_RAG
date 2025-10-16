@@ -29,3 +29,5 @@ __pycache__/
 !/scripts/
 !/config/
 !/rag-interface/
+!/model_interfaces/
+!/modelfiles/

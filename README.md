@@ -9,7 +9,7 @@ Funcionalidad:
 
 Instrucciones
 
-    1. Instalar depencdencias ->  pip install -r requirements.txt (Recomedado hacerlo en un venv)
+    1. Instalar depencdencias ->  pip install -r requirements.txt (Recomnedado hacerlo en un venv)
 
     2. Para OpenAI:
 

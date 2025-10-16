@@ -1,21 +1,24 @@
 from abc import ABC, abstractmethod
 from typing import List, Any
 from file_readers import smart_doc_processing, expand_directories
-from ConversationMemory import ConversationMemory
+from chromadb import PersistentClient, errors
+from model_interfaces.ConversationMemory import ConversationMemory
 import hashlib
 
 
-class Chroma_Rag(ABC):
+class Chroma_RAG(ABC):
     """
     Implementación de RAG (Retrieval-Augmented Generation) usando ChromaDB como base de datos vectorial.
 
     Params:
-        embedding_model (str): Nombre/ruta del modelo de embeddings a usar
-        llm (str): Nombre/ruta del modelo de lenguaje a usar
-        vector_store (Any): Instancia de ChromaDB vector store
-        text_splitter (Any): Divisor de texto para procesamiento de documentos
+        embedding_model (str): Nombre/ruta del modelo de embeddings a usar.
+        llm (str): Nombre/ruta del modelo de lenguaje a usar.
+        vector_store (Any): Instancia de ChromaDB vector store.
+        text_splitter (Any): Divisor de texto para procesamiento de documentos.
         reranker (Any, optional): Modelo de reranking para reordenar documentos. Por defecto None.
         k (int, optional): Número de documentos a recuperar. Por defecto 5.
+        top_k(int,opcional): Número de documentos que se usan después del rerank si se a proporcionado un reranker. Por defecto 3.
+        print_documents(bool,opcional): Boolean por si queres que imprime los chunks que se usaron para generar la respuesta. Por defecto False.
 
     """
     
@@ -23,21 +26,70 @@ class Chroma_Rag(ABC):
     def __init__(self, 
                 embedding_model: str, 
                 llm: str, 
-                vector_store: Any, 
                 text_splitter: Any, 
                 reranker: Any= None,
                 k: int= 5,
-                top_k: int= 3):
+                top_k: int= 3,
+                print_documents: bool = False):
         
         self.embedding_model = embedding_model
         self.llm = llm
-        self.vector_store = vector_store
         self.text_splitter = text_splitter
         self.reranker = reranker
         self.k = k
         self.top_k = top_k
+        self.print_documents = print_documents
 
         self.conversation_memory = ConversationMemory()
+
+        try:
+
+            chroma_collection = embedding_model + "_vdb"# Si no lo encuentra lo crea automaticamente
+            client_chroma = PersistentClient()
+            self.vector_store= client_chroma.get_or_create_collection(chroma_collection)
+
+        except errors.InvalidArgumentError as iae:
+            tokens =embedding_model.split("/")
+            chroma_collection = tokens[1] + "_vdb"
+            client_chroma = PersistentClient()
+            self.vector_store= client_chroma.get_or_create_collection(chroma_collection)
+
+
+    @abstractmethod
+    def get_embeddings(self, text: str) -> List[float]:
+        """
+        Método abstracto para generar embeddings de texto.
+        
+        Params:
+            text (str): Texto para generar embeddings
+
+
+        """
+        pass
+
+    @abstractmethod
+    def generate_stream(self, prompt: str):
+        """
+        Método abstracto para generar respuesta como stream usando el prompt pasado como parametro.
+        
+        Params:
+            prompt (str): Texto que se pasa al modelo como prompt para generar respuesta
+        """
+        pass
+
+    
+    @abstractmethod
+    def get_full_response(self, stream, bool_print:bool)-> str:
+        """
+        Método abstracto que devuelve la respuesta completa de un modelo a partir del stream.
+        
+        Params:
+            stream: stream de la respuesta generada por el modelo
+            bool_print(bool): boolean para imprimir el texto del stream a la consola.
+        """
+        pass
+
+        
 
     def is_file_in_store(self, file_path: str)-> bool:
         """
@@ -47,7 +99,6 @@ class Chroma_Rag(ABC):
             vector_database(Chroma)
             file_path(str)
             
-        Return bool
         """
         try:
             file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
@@ -242,40 +293,114 @@ class Chroma_Rag(ABC):
 
         return reranked_documents, reranked_metadatas
     
+    
 
-    @abstractmethod
     def invoke(self, query: str) -> None:
         """
-        Método abstracto para ejecutar la consulta RAG completa.
-        
+        Metodo para ejecutar la aquitectura RAG. Imprime la respuesta en consola.
+
         Params:
-            query (str): Consulta del usuario a procesar
+        query(str): Input de usuario
+
         """
-        pass
-    
-    @abstractmethod
-    def get_embeddings(self, text: str) -> List[float]:
-        """
-        Método abstracto para generar embeddings de texto.
-        
-        Params:
-            text (str): Texto para generar embeddings
-        """
+
+        self.conversation_memory.add_message("user",query)
+
+        relevant_messages = self.conversation_memory.get_full_history()
+
+        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+
+        results = self.retrieve(query)
+        documents = results['documents'][0]
+        metadatas = results.get('metadatas', [[]])[0]
+
+        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
+
+        if self.reranker:
+            
+            reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
+            documents = reranked_docs[:self.top_k]
+            metadatas = reranked_metadatas[:self.top_k]
+
+        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+
+        stream = self.generate_stream(manual_prompt)
+
+        full_response = self.get_full_response(stream, bool_print=True)
+
+        if full_response:
+
+            self.conversation_memory.add_message("system", full_response)
+
+        if self.print_documents:
+
+            print("\nDocuments used:")
+            for i, metadata in enumerate(metadatas):
+                file_path = metadata.get('source', f"Document {i+1}")
+                print(f"\nDocument {i+1}: {file_path}")
+
         pass
 
-    @abstractmethod
-    def invoke_rerank(self, query: str) -> None:
-        """
-        Método abstracto para ejecutar la consulta RAG con reranking.
-        
-        Params:
-            query (str): Consulta del usuario a procesar con reranking
-        """
-        pass
 
-    @abstractmethod
     def invoke_api(self, query: str) -> dict:
-        pass
+        """
+        Metodo para ejecutar la aqruitectura RAG. Devuelve la respuesta en un dict que REACT puede interpretar.
 
+        Params:
+        query(str): Input de usuario
+
+        Return -> dict
+
+        {
+            "answer": full_response, (str)
+            "sources": sources,  (List[Dict]) ->   {"id": int, "title": str, "content": str}
+            "query": query  (str)
+        }
+
+        """
+        
+        self.conversation_memory.add_message("user",query)
+
+        relevant_messages = self.conversation_memory.get_full_history()
+
+        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+
+        results = self.retrieve(query)
+        documents = results['documents'][0]
+        metadatas = results.get('metadatas', [[]])[0]
+
+        if self.reranker:
+
+            reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
+            documents = reranked_docs[:self.top_k]
+            metadatas = reranked_metadatas[:self.top_k]
+            
+        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
+
+        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+
+        stream = self.generate_stream(manual_prompt)
+
+        full_response = self.get_full_response(stream)
+
+        if full_response:
+
+            self.conversation_memory.add_message("system", full_response)
+
+        sources = []
+
+        for i, (metadata, doc_content) in enumerate(zip(metadatas, documents)):
+            sources.append({
+                "id": i + 1,
+                "title": metadata.get('source', f"Document {i+1}"),
+                "content": doc_content
+                #"content": doc_content[:200] + "..." if len(doc_content) > 200 else doc_content
+            })
+        
+        return {
+            "answer": full_response,
+            "sources": sources,  
+            "query": query  
+        }
     
 

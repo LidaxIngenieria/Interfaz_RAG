@@ -51,6 +51,7 @@ class ConversationMemory:
                 lines.append(message['content'])
         
         return "\n".join(lines)
+    
 
     def get_full_history(self) -> List[Dict]:
         """

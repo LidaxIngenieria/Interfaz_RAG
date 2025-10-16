@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 load_dotenv()
 
 # Import your existing RAG code
-from OpenAI_Rag import OpenAI_Rag
+from model_interfaces.OpenAI_RAG import OpenAI_RAG
 from chromadb import PersistentClient
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
@@ -38,16 +38,12 @@ async def lifespan(app: FastAPI):
     EMBED_MODEL_NAME = "text-embedding-3-small"
     LLM_NAME = "gpt-3.5-turbo" 
 
-    CHROMA_DIRECTORY = "chroma_lidax_vdb"
-    CLIENT_CHROMA = PersistentClient()
-    VECTOR_STORE = CLIENT_CHROMA.get_or_create_collection(CHROMA_DIRECTORY)
-
     TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
 
     RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
     print("Initializing RAG system...")
-    rag_system = OpenAI_Rag(EMBED_MODEL_NAME, LLM_NAME, VECTOR_STORE, TEXT_SPLITTER, RERANKER)
+    rag_system = OpenAI_RAG(EMBED_MODEL_NAME, LLM_NAME, TEXT_SPLITTER, RERANKER)
     print("RAG system initialized successfully!")
     
     yield

@@ -1,14 +1,14 @@
-from OllamaRag import OllamaRag
-from OpenAI_Rag import OpenAI_Rag
+from model_interfaces.Ollama_RAG import Ollama_RAG
+from model_interfaces.OpenAI_RAG import OpenAI_RAG
+from model_interfaces.Gemini_RAG import Gemini_RAG
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
 
-#Si cambias el modelo de embeddings crear una carpeta nueva para los vectores.
-EMBED_MODEL_NAME = "text-embedding-3-small"
-LLM_NAME =  "gpt-3.5-turbo" 
+EMBED_MODEL_NAME = "models/embedding-001" #"text-embedding-3-small"
+LLM_NAME = "models/gemini-2.5-flash-lite" # "gpt-3.5-turbo" 
 
 TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
 
@@ -17,9 +17,11 @@ RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 def main():
 
-    rag = OpenAI_Rag(EMBED_MODEL_NAME,LLM_NAME, TEXT_SPLITTER, RERANKER, k=10,top_k=3)
+    #rag = Gemini_RAG(EMBED_MODEL_NAME,LLM_NAME,TEXT_SPLITTER,RERANKER,k=10,top_k=3,print_documents=True)
 
-    #rag = OllamaRag(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER,k=10)
+    rag = OpenAI_RAG(EMBED_MODEL_NAME,LLM_NAME, TEXT_SPLITTER, RERANKER, k=10,top_k=3,print_documents= True)
+
+    #rag = Ollama_RAG(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER,k=10)
 
 
     while True:
