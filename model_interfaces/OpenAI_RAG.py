@@ -41,19 +41,19 @@ class OpenAI_RAG(Chroma_RAG):
 
 
     
-    def get_embeddings(self, text: str) -> List[float]:
+    def get_embeddings(self, texts: List[str]) -> List[float]:
         """
         Genera embeddings para el texto usando el modelo de OpenAI especificado.
 
         Params:
-            text (str): Texto para generar embeddings
+            texts List[str]: Texto para generar embeddings
         """
         response = self.client.embeddings.create(
-            model=self.embedding_model, 
-            input=text
+            model=self.embedding_model,
+            input=texts
         )
-        return response.data[0].embedding
-    
+        return [d.embedding for d in response.data]
+
     
     def generate_stream(self, prompt: str):
         """

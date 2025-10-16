@@ -38,17 +38,17 @@ class Gemini_RAG(Chroma_RAG):
     
     
 
-    def get_embeddings(self, text:str) -> List[float]:
+    def get_embeddings(self, texts: List[str]) -> List[float]:
         """
         Genera embeddings para el texto usando el modelo de Gemini especificado.
 
         Params:
-            text (str): Texto para generar embeddings
+            texts (List[str]): Texto para generar embeddings
         """
 
         result = self.client.models.embed_content(
             model=self.embedding_model,
-            contents=text,
+            contents=texts,
         )
 
         return result

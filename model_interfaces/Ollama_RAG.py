@@ -35,16 +35,16 @@ class Ollama_RAG(Chroma_RAG):
 
 
 
-    def get_embeddings(self, text: str) -> List[float]:
+    def get_embeddings(self, texts: List[str]) -> List[float]:
         """
         Genera embeddings para el texto usando el modelo de Ollama especificado.
 
         Params:
-            text (str): Texto para generar embeddings
+            texts (List[str]): Texto para generar embeddings
 
         """
-        response = ollama.embed(model=self.embedding_model, input=text)
-        return response['embeddings'][0]
+        response = ollama.embed(model=self.embedding_model, input=texts)
+        return response['embeddings']
     
     
     def generate_stream(self, prompt: str):

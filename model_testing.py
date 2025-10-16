@@ -19,11 +19,12 @@ OUTPUT_DIR = "respuestas_txt" #carpeta donde se guardan los archivos txt
 
 def main():
 
-    rag_openai_10_3 = OpenAI_RAG("text-embedding-3-small","gpt-3.5-turbo", TEXT_SPLITTER, RERANKER, k=10,top_k=3)
-    rag_openai_10_5 = OpenAI_RAG("text-embedding-3-small","gpt-3.5-turbo", TEXT_SPLITTER, RERANKER, k=10,top_k=5)
-    rag_ollama = Ollama_RAG("nomic-embed-text","rag-memory-3",TEXT_SPLITTER, RERANKER,k=10,top_k=3)
+    rag_openai_10_3 = OpenAI_RAG("text-embedding-3-large","gpt-4", TEXT_SPLITTER, RERANKER, k=10,top_k=3)
+    # rag_openai_10_5 = OpenAI_RAG("text-embedding-3-small","gpt-3.5-turbo", TEXT_SPLITTER, RERANKER, k=10,top_k=5)
+    # rag_ollama = Ollama_RAG("nomic-embed-text","rag-memory-3",TEXT_SPLITTER, RERANKER,k=10,top_k=3)
 
-    rag_models = [rag_openai_10_3, rag_openai_10_5,rag_ollama]
+
+    rag_models = [rag_openai_10_3]
 
 
     for rag in rag_models:

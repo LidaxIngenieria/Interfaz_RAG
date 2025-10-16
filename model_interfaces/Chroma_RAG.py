@@ -56,12 +56,12 @@ class Chroma_RAG(ABC):
 
 
     @abstractmethod
-    def get_embeddings(self, text: str) -> List[float]:
+    def get_embeddings(self, texts: List[str]) -> List[float]:
         """
         Método abstracto para generar embeddings de texto.
         
         Params:
-            text (str): Texto para generar embeddings
+            texts (List[str]): Texto para generar embeddings
 
 
         """
@@ -140,10 +140,12 @@ class Chroma_RAG(ABC):
                     continue
                     
                 embeddings = []
+                chunks = []
                 for doc in documents:
                     content = doc.get("content")
-                    embedding = self.get_embeddings(content)
-                    embeddings.append(embedding)
+                    chunks.append(content)
+            
+                embeddings = self.get_embeddings(chunks)
             
                 metadatas = []
                 for doc in documents:
@@ -224,12 +226,15 @@ class Chroma_RAG(ABC):
 
                 if documents is None or ids is None:
                     continue
-                    
-                embeddings = []
+
+                chunks = []
                 for doc in documents:
                     content = doc.get("content")
-                    embedding = self.get_embeddings(content)
-                    embeddings.append(embedding)
+                    #embedding = self.get_embeddings(content)
+                    chunks.append(doc)
+
+                embeddings = self.get_embeddings(chunks)
+
             
                 metadatas = []
                 for doc in documents:
@@ -262,7 +267,7 @@ class Chroma_RAG(ABC):
         """
         
         results = self.vector_store.query(
-            query_embeddings=self.get_embeddings(query),
+            query_embeddings=self.get_embeddings([query]),
             n_results= self.k,
         )
 
