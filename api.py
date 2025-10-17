@@ -1,24 +1,26 @@
+# main.py - Fixed streaming version
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Iterator
 import os
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Import your existing RAG code
-from model_interfaces.OpenAI_RAG import OpenAI_RAG
-from chromadb import PersistentClient
+from model_interfaces.Ollama_RAG import Ollama_RAG
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
-# Request/Response models
+# --- Simplified request/response models ---
 class QueryRequest(BaseModel):
     query: str
-
 
 class QueryResponse(BaseModel):
     answer: str
@@ -28,38 +30,35 @@ class QueryResponse(BaseModel):
 # Initialize your RAG system
 rag_system = None
 
+# Lifespan startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     global rag_system
     CHUNK_SIZE = 1200
     CHUNK_OVERLAP = 200
-
-    EMBED_MODEL_NAME = "text-embedding-3-small"
-    LLM_NAME = "gpt-3.5-turbo" 
-
-    TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
-
-    RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+    TEXT_SPLITTER = TextSplitter.from_tiktoken_model(
+        "gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP
+    )
+    RERANKER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     print("Initializing RAG system...")
-    rag_system = OpenAI_RAG(EMBED_MODEL_NAME, LLM_NAME, TEXT_SPLITTER, RERANKER)
+    rag_system = Ollama_RAG("nomic-embed-text", "react_ollama_model", TEXT_SPLITTER, RERANKER)
     print("RAG system initialized successfully!")
-    
-    yield
-    # Shutdown - you can add cleanup code here if needed
 
-# Create FastAPI app with lifespan
+    yield
+    # Shutdown (if needed)
+
+# Create FastAPI app
 app = FastAPI(
-    title="RAG API", 
-    description="API for RAG Interface",
+    title="Lidax RAG API",
+    description="API for the Lidax RAG Interface",
     lifespan=lifespan
 )
 
-# Add CORS middleware to allow React frontend to communicate with the API
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,59 +66,67 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "RAG API is running"}
+    return {"message": "Lidax RAG API is running"}
 
+# --- Standard query endpoint ---
 @app.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     try:
-        print(f"Received query: {request.query}")
-        
         if rag_system is None:
-            return {
-                "answer": "RAG system is not initialized yet. Please try again in a moment.",
-                "sources": [],
-                "query": request.query
-            }
-        
-        # Check if invoke_api method exists, otherwise use fallback
-        if hasattr(rag_system, 'invoke_api'):
-            response = rag_system.invoke_api(request.query)
-        else:
-            # Fallback if invoke_api method doesn't exist
-            response = {
-                "answer": f"Your RAG system is working! Query received: '{request.query}'. Note: The invoke_api method needs to be implemented in your OpenAI_Rag class.",
-                "sources": [
-                    {
-                        "id": 1,
-                        "title": "System Info",
-                        "content": "RAG backend is connected but invoke_api method is missing",
-                        "similarity": 0.9
-                    }
-                ],
-                "query": request.query
-            }
-        
+            raise HTTPException(status_code=503, detail="RAG system not initialized.")
+
+        response = rag_system.invoke_api(request.query)
         return response
-        
+
     except Exception as e:
-        print(f"Error processing query: {str(e)}")
         import traceback
         traceback.print_exc()
-        
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
 
+# In main.py
+@app.post("/query/stream")
+async def query_rag_stream(request: QueryRequest):
+    if rag_system is None:
+        raise HTTPException(status_code=503, detail="RAG system not initialized.")
+
+    def generate_stream():
+        try:
+            # rag_system.invoke_as_stream yields Python dicts: {"type": "chunk", "content": "..."} or {"type": "final", "sources": [...]}
+            stream = rag_system.invoke_as_stream(request.query)
+            
+            for item in stream:
+                # 🛑 CRITICAL FIX: Explicitly serialize the Python dictionary to a JSON line 🛑
+                # This ensures the client receives a clean JSON string, not a Python dict's __repr__
+                yield json.dumps(item) + "\n"
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            # Send an error payload as the final item in the stream
+            error_payload = {"type": "error", "message": f"Error during streaming: {str(e)}"}
+            yield json.dumps(error_payload) + "\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        # Use text/plain for maximum compatibility, even though it's JSONL
+        media_type="text/plain"
+    )
+
+
+# --- Health check ---
 @app.get("/health")
 async def health_check():
     api_key_status = "configured" if os.getenv("OPENAI_API_KEY") else "missing"
     rag_status = "initialized" if rag_system else "not_initialized"
-    
+
     return {
-        "status": "healthy", 
+        "status": "healthy",
         "openai_api_key": api_key_status,
         "rag_system": rag_status,
         "message": "Backend is running correctly"
     }
 
+# --- Run server ---
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

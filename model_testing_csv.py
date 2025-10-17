@@ -13,7 +13,7 @@ TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK
 
 RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
-TEST_FILE = "respuestas_csv/test_prompts.txt"
+TEST_FILE = "test_prompts.txt"
 
 OUTPUT_DIR = "respuestas_csv" #carpeta donde se guardan los archivos csv
 

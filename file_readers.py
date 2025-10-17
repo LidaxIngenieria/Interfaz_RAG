@@ -97,6 +97,8 @@ def smart_doc_processing(text_splitter: Any, file_path: str) -> str:
         print(f"Error creating chunks for file: {e}")
         return None, None
     
+    
+    
 def expand_directories(file_paths: List[str]) -> List[str]:
     """
     Expande directorios en una lista de archivos soportados y filtra por extensiones válidas.

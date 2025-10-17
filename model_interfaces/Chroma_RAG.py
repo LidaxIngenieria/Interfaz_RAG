@@ -4,6 +4,7 @@ from file_readers import smart_doc_processing, expand_directories
 from chromadb import PersistentClient, errors
 from model_interfaces.ConversationMemory import ConversationMemory
 import hashlib
+from typing import Iterator
 
 
 class Chroma_RAG(ABC):
@@ -347,6 +348,7 @@ class Chroma_RAG(ABC):
         pass
 
 
+
     def invoke_api(self, query: str) -> dict:
         """
         Metodo para ejecutar la aqruitectura RAG. Devuelve la respuesta en un dict que REACT puede interpretar.
@@ -408,4 +410,72 @@ class Chroma_RAG(ABC):
             "query": query  
         }
     
+
+
+
+
+
+
+
+
+    def _format_sources(self, documents: list, metadatas: list) -> list:
+        """Helper to format documents and metadatas into the source list."""
+        formatted_sources = []
+        for doc, meta in zip(documents, metadatas):
+            formatted_sources.append({
+                "title": meta.get('title', 'N/A'),
+                "link": meta.get('link', '#'),
+                "content": doc,
+            })
+        return formatted_sources
+
+    def invoke_as_stream(self, query: str) -> Iterator[dict]:
+        """
+        Handles RAG logic and streams the response chunks and final sources 
+        as structured dictionaries.
+        """
+        self.conversation_memory.add_message("user", query)
+        
+        # 1. Prepare RAG Context (Non-streaming part)
+        relevant_messages = self.conversation_memory.get_full_history()
+        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+        
+        results = self.retrieve(query)
+        documents = results.get('documents', [[]])[0]
+        metadatas = results.get('metadatas', [[]])[0]
+
+        if self.reranker:
+            reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
+            documents = reranked_docs[:self.top_k]
+            metadatas = reranked_metadatas[:self.top_k]
+        
+        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
+        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+
+        # 2. Get the LLM stream (an iterator)
+        llm_stream = self.generate_stream(manual_prompt) # This calls ollama.generate(..., stream=True)
+
+        # 3. Stream text chunks as structured data
+        full_response = ""
+        for chunk in llm_stream:
+            # 🛑 Ensure 'chunk' here is a dictionary, not a string representation of one 🛑
+            # If it's a string, you might have to parse it, but that's complex and usually unnecessary.
+            
+            # Assuming it IS a dictionary:
+            chunk_text = chunk.get('response', '') 
+            
+            # 🛑 Yield a dictionary 🛑
+            yield {"type": "chunk", "content": chunk_text}
+
+            # Accumulate text for memory
+            full_response += chunk_text
+
+        # 4. Update memory AFTER the stream is fully consumed
+        if full_response:
+            self.conversation_memory.add_message("system", full_response)
+            
+        # 5. Calculate and yield final sources JSON
+        formatted_sources = self._format_sources(documents, metadatas)
+        # 🛑 Yield the final dictionary containing sources 🛑
+        yield {"type": "final", "sources": formatted_sources, "query": query}
 

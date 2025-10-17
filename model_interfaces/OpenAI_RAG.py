@@ -33,11 +33,12 @@ class OpenAI_RAG(Chroma_RAG):
                 text_splitter: Any, 
                 reranker: Any = None,
                 k: int = 5,
-                top_k: int = 3):
+                top_k: int = 3,
+                print_documents: bool = False):
         
         self.client = OpenAI()
 
-        super().__init__(embedding_model, llm, text_splitter, reranker, k, top_k)
+        super().__init__(embedding_model, llm, text_splitter, reranker, k, top_k, print_documents)
 
 
     

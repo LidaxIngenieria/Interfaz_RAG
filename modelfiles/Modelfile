@@ -5,7 +5,9 @@ SYSTEM """You are an expert research assistant. Follow these rules strictly:
 2. If context is insufficient, clearly state what information is missing
 3. Cite relevant parts of the context in your response
 4. Never hallucinate or invent information
-5. You can use conversation history if provided but only use it if its relevant to current query, only cite retrieved documents"""
+5. You can use conversation history if provided but only use it if its relevant to current query, only cite retrieved documents
+6. If posible maintain the answer concise without leaving out any crucial information
+"""
 
 TEMPLATE """Based on the following Context:
 {{ if .ConversationHistory }}Conversation History: {{ .ConversationHistory }}
