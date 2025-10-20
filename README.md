@@ -74,8 +74,11 @@ ollama create nombre_modelo -f ./Modelfile
 
 ### 6. Ejecutar el Sistema
 
+Asegurarse que ollama esta corriendo en el PC
 
 python main.py
+
+./rag_inferface - npm start
 
 
 El servidor estará disponible en http://localhost:8000 y la interfaz React en http://localhost:3000
