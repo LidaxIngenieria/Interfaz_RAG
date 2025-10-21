@@ -1,13 +1,15 @@
-from abc import ABC, abstractmethod
-from typing import List, Any
+
 from file_readers import smart_doc_processing, expand_directories
 from chromadb import PersistentClient, errors
-from model_interfaces.ConversationMemory import ConversationMemory
+from model_interfaces import ConversationMemory, LLM, E_Model, Image_Model
+from typing import Iterator
+from typing import List, Any
 import hashlib
 from typing import Iterator
 
 
-class Chroma_RAG(ABC):
+
+class Chroma_RAG():
     """
     Implementación de RAG (Retrieval-Augmented Generation) usando ChromaDB como base de datos vectorial.
 
@@ -25,8 +27,9 @@ class Chroma_RAG(ABC):
     
 
     def __init__(self, 
-                embedding_model: str, 
-                llm: str, 
+                embedding_model: E_Model, 
+                llm: LLM, 
+                image_model: Image_Model,
                 text_splitter: Any, 
                 reranker: Any= None,
                 k: int= 5,
@@ -35,17 +38,18 @@ class Chroma_RAG(ABC):
         
         self.embedding_model = embedding_model
         self.llm = llm
+        self.image_model = image_model
         self.text_splitter = text_splitter
         self.reranker = reranker
         self.k = k
         self.top_k = top_k
         self.print_documents = print_documents
 
-        self.conversation_memory = ConversationMemory()
+        self.conversation_memory = ConversationMemory.ConversationMemory()
 
         try:
 
-            chroma_collection = embedding_model + "_vdb"# Si no lo encuentra lo crea automaticamente
+            chroma_collection = embedding_model.model_name + "_vdb"# Si no lo encuentra lo crea automaticamente
             client_chroma = PersistentClient()
             self.vector_store= client_chroma.get_or_create_collection(chroma_collection)
 
@@ -56,41 +60,6 @@ class Chroma_RAG(ABC):
             self.vector_store= client_chroma.get_or_create_collection(chroma_collection)
 
 
-    @abstractmethod
-    def get_embeddings(self, texts: List[str]) -> List[float]:
-        """
-        Método abstracto para generar embeddings de texto.
-        
-        Params:
-            texts (List[str]): Texto para generar embeddings
-
-
-        """
-        pass
-
-    @abstractmethod
-    def generate_stream(self, prompt: str):
-        """
-        Método abstracto para generar respuesta como stream usando el prompt pasado como parametro.
-        
-        Params:
-            prompt (str): Texto que se pasa al modelo como prompt para generar respuesta
-        """
-        pass
-
-    
-    @abstractmethod
-    def get_full_response(self, stream, bool_print:bool)-> str:
-        """
-        Método abstracto que devuelve la respuesta completa de un modelo a partir del stream.
-        
-        Params:
-            stream: stream de la respuesta generada por el modelo
-            bool_print(bool): boolean para imprimir el texto del stream a la consola.
-        """
-        pass
-
-        
 
     def is_file_in_store(self, file_path: str)-> bool:
         """
@@ -146,7 +115,7 @@ class Chroma_RAG(ABC):
                     content = doc.get("content")
                     chunks.append(content)
             
-                embeddings = self.get_embeddings(chunks)
+                embeddings = self.embedding_model.generate_embeddings(chunks)
             
                 metadatas = []
                 for doc in documents:
@@ -234,7 +203,7 @@ class Chroma_RAG(ABC):
                     #embedding = self.get_embeddings(content)
                     chunks.append(doc)
 
-                embeddings = self.get_embeddings(chunks)
+                embeddings = self.embedding_model.geenerate_embeddings(chunks)
 
             
                 metadatas = []
@@ -268,7 +237,7 @@ class Chroma_RAG(ABC):
         """
         
         results = self.vector_store.query(
-            query_embeddings=self.get_embeddings([query]),
+            query_embeddings=self.embedding_model.generate_embeddings([query]),
             n_results= self.k,
         )
 
@@ -316,7 +285,9 @@ class Chroma_RAG(ABC):
 
         conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
 
-        results = self.retrieve(query)
+        enhanced_query = self.llm.enhance_query(query, conversation_history)
+
+        results = self.retrieve(enhanced_query)
         documents = results['documents'][0]
         metadatas = results.get('metadatas', [[]])[0]
 
@@ -328,11 +299,16 @@ class Chroma_RAG(ABC):
             documents = reranked_docs[:self.top_k]
             metadatas = reranked_metadatas[:self.top_k]
 
-        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+        manual_prompt = f"""Task: ANSWER: Using only the provided context
+        Context: {context}
 
-        stream = self.generate_stream(manual_prompt)
+        Question: {enhanced_query}
 
-        full_response = self.get_full_response(stream, bool_print=True)
+        Answer:"""
+
+        stream = self.llm.generate_stream(manual_prompt)
+
+        full_response = self.llm.get_full_response(stream, bool_print=True)
 
         if full_response:
 
@@ -345,11 +321,9 @@ class Chroma_RAG(ABC):
                 file_path = metadata.get('source', f"Document {i+1}")
                 print(f"\nDocument {i+1}: {file_path}")
 
-        pass
 
 
-
-    def invoke_api(self, query: str) -> dict:
+    def invoke_for_testing(self, query: str) -> dict:
         """
         Metodo para ejecutar la aqruitectura RAG. Devuelve la respuesta en un dict que REACT puede interpretar.
 
@@ -372,7 +346,9 @@ class Chroma_RAG(ABC):
 
         conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
 
-        results = self.retrieve(query)
+        enhanced_query = self.llm.enhance_query(query,conversation_history)
+
+        results = self.retrieve(enhanced_query)
         documents = results['documents'][0]
         metadatas = results.get('metadatas', [[]])[0]
 
@@ -384,11 +360,16 @@ class Chroma_RAG(ABC):
             
         context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
 
-        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+        manual_prompt= f"""Task: ANSWER: Using only the provided context
+        Context: {context}
 
-        stream = self.generate_stream(manual_prompt)
+        Question: {enhanced_query}
 
-        full_response = self.get_full_response(stream)
+        Answer:"""
+
+        stream = self.llm.generate_stream(manual_prompt)
+
+        full_response = self.llm.get_full_response(stream)
 
         if full_response:
 
@@ -411,23 +392,18 @@ class Chroma_RAG(ABC):
         }
     
 
-
-
-
-
-
-
-
     def _format_sources(self, documents: list, metadatas: list) -> list:
-        """Helper to format documents and metadatas into the source list."""
+
         formatted_sources = []
         for doc, meta in zip(documents, metadatas):
             formatted_sources.append({
-                "title": meta.get('title', 'N/A'),
+                "title": meta.get('source'),
                 "link": meta.get('link', '#'),
                 "content": doc,
             })
         return formatted_sources
+    
+
 
     def invoke_as_stream(self, query: str) -> Iterator[dict]:
         """
@@ -439,10 +415,12 @@ class Chroma_RAG(ABC):
         # 1. Prepare RAG Context (Non-streaming part)
         relevant_messages = self.conversation_memory.get_full_history()
         conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+
+        enhanced_query = self.llm.enhance_query(query,conversation_history)
         
-        results = self.retrieve(query)
-        documents = results.get('documents', [[]])[0]
-        metadatas = results.get('metadatas', [[]])[0]
+        results = self.retrieve(enhanced_query)
+        documents = results['documents'][0]
+        metadatas = results['metadatas'][0]
 
         if self.reranker:
             reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
@@ -450,10 +428,16 @@ class Chroma_RAG(ABC):
             metadatas = reranked_metadatas[:self.top_k]
         
         context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
-        manual_prompt = f"Context: {context}\n\nConversationHistory: {conversation_history} \n\nQuestion: {query}"
+
+        manual_prompt = f"""Task: ANSWER: Using only the provided context
+        Context: {context}
+
+        Question: {enhanced_query}
+
+        Answer:"""
 
         # 2. Get the LLM stream (an iterator)
-        llm_stream = self.generate_stream(manual_prompt) # This calls ollama.generate(..., stream=True)
+        llm_stream = self.llm.generate_stream(manual_prompt) # This calls ollama.generate(..., stream=True)
 
         # 3. Stream text chunks as structured data
         full_response = ""
@@ -478,4 +462,6 @@ class Chroma_RAG(ABC):
         formatted_sources = self._format_sources(documents, metadatas)
         # 🛑 Yield the final dictionary containing sources 🛑
         yield {"type": "final", "sources": formatted_sources, "query": query}
+
+
 

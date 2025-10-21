@@ -1,5 +1,4 @@
-from model_interfaces.Ollama_RAG import Ollama_RAG
-from model_interfaces.OpenAI_RAG import OpenAI_RAG
+from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 import csv
@@ -9,9 +8,6 @@ import os
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
 
-TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
-
-RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 TEST_FILE = "test_prompts.txt"
 
@@ -19,11 +15,13 @@ OUTPUT_DIR = "respuestas_csv" #carpeta donde se guardan los archivos csv
 
 def main():
 
-    rag_openai_10_3 = OpenAI_RAG("text-embedding-3-small", "gpt-3.5-turbo", TEXT_SPLITTER, RERANKER, k=10, top_k=3)
-    rag_openai_10_5 = OpenAI_RAG("text-embedding-3-small", "gpt-3.5-turbo", TEXT_SPLITTER, RERANKER, k=10, top_k=5)
-    #rag_ollama = OllamaRag("nomic-embed-text", "rag-memory-3", TEXT_SPLITTER, RERANKER, k=10, top_k=3)
+    TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
 
-    rag_models = [rag_openai_10_3, rag_openai_10_5]
+    RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+    #rag
+
+    rag_models = []
 
 
     with open(TEST_FILE, "r", encoding="utf-8") as txt_file:
@@ -56,7 +54,7 @@ def main():
             for i, paragraph in enumerate(paragraphs):
 
                 start = time.time()
-                dict_response = rag.invoke_api(paragraph)
+                dict_response = rag.invoke_for_testing(paragraph)
                 end = time.time()
                 elapsed = end - start
                 total_time += elapsed

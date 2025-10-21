@@ -3,7 +3,10 @@ import './App.css';
 // Import your PNG image
 import lidaxLogo from './Lidax_logo.svg'; 
 
+
+
 function App() {
+  const BACKEND_URL = "http://192.168.1.81:8000";
   const [query, setQuery] = useState('');
   const [pendingQuery, setPendingQuery] = useState(''); // Holds the query that is currently being processed
   const [response, setResponse] = useState('');
@@ -39,11 +42,11 @@ function App() {
   const callRagApiStream = async (question, onChunk, onFinal) => {
     try {
       console.log("Starting stream request (JSONL)...");
-      const response = await fetch("http://localhost:8000/query/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: question }),
-      });
+        const response = await fetch(`${BACKEND_URL}/query/stream`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: question }),
+        });
 
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);

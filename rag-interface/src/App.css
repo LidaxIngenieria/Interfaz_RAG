@@ -375,9 +375,15 @@ body.dark-mode .source-preview {
     font-size: 1.1rem;
   }
 
-  .chat-feed {
-    padding: 1rem;
-  }
+.chat-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: -0.5rem 0.5rem 0 0.5rem; /* Added negative top margin */
+}
 
   .chat-item {
     max-width: 95%;

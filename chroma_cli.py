@@ -1,27 +1,25 @@
-from model_interfaces.Ollama_RAG import Ollama_RAG
-from model_interfaces.OpenAI_RAG import OpenAI_RAG
-from model_interfaces.Gemini_RAG import Gemini_RAG
+from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
 
-EMBED_MODEL_NAME = "models/embedding-001" #"text-embedding-3-small"
-LLM_NAME = "models/gemini-2.5-flash-lite" # "gpt-3.5-turbo" 
-
-TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
-
-RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
 
 def main():
 
-    #rag = Gemini_RAG(EMBED_MODEL_NAME,LLM_NAME,TEXT_SPLITTER,RERANKER,k=10,top_k=3,print_documents=True)
+    EMBED_MODEL = E_Model.Ollama_Embedding("nomic-embed-text")
 
-    rag = OpenAI_RAG(EMBED_MODEL_NAME,LLM_NAME, TEXT_SPLITTER, RERANKER, k=10,top_k=3,print_documents= True)
+    LLM_MODEL = LLM.Ollama_LLM("react_ollama_model")
 
-    #rag = Ollama_RAG(EMBED_MODEL_NAME,LLM_NAME,VECTOR_STORE, TEXT_SPLITTER, RERANKER,k=10)
+    IMAGE_MODEL = Image_Model.Image_Model("None")
+
+    TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
+
+    RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+    rag = Chroma_RAG(EMBED_MODEL,LLM_MODEL, IMAGE_MODEL, TEXT_SPLITTER, RERANKER,k=7,top_k=3,print_documents=True)
 
 
     while True:
@@ -62,7 +60,7 @@ def main():
                         if not query:
                             continue
                             
-                        rag.invoke_rerank(query)
+                        rag.invoke(query)
                     
                         print("\n" + "-" * 70)
 

@@ -1,20 +1,29 @@
-FROM llama3.2:1b
+FROM mistral:7b
 
-SYSTEM """You are an expert research assistant. Follow these rules strictly:
-1. Answer questions using ONLY the provided context
-2. If context is insufficient, clearly state what information is missing
-3. Cite relevant parts of the context in your response
-4. Never hallucinate or invent information
-5. You can use conversation history if provided but only use it if its relevant to current query, only cite retrieved documents
-6. If posible maintain the answer concise without leaving out any crucial information
+PARAMETER num_ctx 8192
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+
+SYSTEM """
+You are an expert research assistant. Follow these rules strictly:
+1. For ENHANCE tasks: Use conversation history to improve the query while maintaining original intent.
+2. For ANSWER tasks: Use ONLY the provided context, never conversation history.
+3. If context is insufficient, clearly state what information is missing.
+4. Cite relevant parts of the context in your response.
+5. Never hallucinate or invent information.
+6. Maintain concise, factual, and clear answers.
 """
 
-TEMPLATE """Based on the following Context:
-{{ if .ConversationHistory }}Conversation History: {{ .ConversationHistory }}
-{{ end }}{{ if .Context }}Retrieved Documents: {{ .Context }}{{ end }}
-
+TEMPLATE """{{ if eq .Task "ENHANCE" -}}
+Task: ENHANCE
+Conversation History: {{ .ConversationHistory }}
 Question: {{ .Prompt }}
-
-Answer:"""
-
-PARAMETER num_ctx 4096
+Answer:
+{{ else -}}
+Task: ANSWER
+Using only the provided context.
+Context: {{ .Context }}
+Question: {{ .Prompt }}
+Answer:
+{{ end }}"""

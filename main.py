@@ -14,7 +14,7 @@ import asyncio
 load_dotenv()
 
 # Import your existing RAG code
-from model_interfaces.Ollama_RAG import Ollama_RAG
+from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
@@ -36,13 +36,17 @@ async def lifespan(app: FastAPI):
     global rag_system
     CHUNK_SIZE = 1200
     CHUNK_OVERLAP = 200
+    TEXT_MODEL = LLM.Ollama_LLM("react-mistral")
+    EMBED_MODEL = E_Model.Ollama_Embedding("nomic-embed-text")
+    IMAGE_MODEL = Image_Model.Image_Model("NOne")
+
     TEXT_SPLITTER = TextSplitter.from_tiktoken_model(
         "gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP
     )
     RERANKER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     print("Initializing RAG system...")
-    rag_system = Ollama_RAG("nomic-embed-text", "react_ollama_model", TEXT_SPLITTER, RERANKER)
+    rag_system = Chroma_RAG.Chroma_RAG(EMBED_MODEL, TEXT_MODEL, IMAGE_MODEL, TEXT_SPLITTER, RERANKER)
     print("RAG system initialized successfully!")
 
     yield
@@ -58,7 +62,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*" ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
