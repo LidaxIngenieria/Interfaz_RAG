@@ -121,13 +121,28 @@ class Ollama_LLM(LLM):
             memory(str): Texto representativo del historial de conversacion del usuario
         """
 
-        prompt = f"""Task: Enhance initial user input for retrieval but dont add information, if provided use the conversation history to add context to query"
-            Conversation History: {memory}
+        prompt = f"""
+        You are an intelligent query enhancer. Your ONLY job is to rewrite the user's question using relevant information from the conversation history — if and only if it's directly related.
 
-            Question: {query}
+        ### RULES:
+        1. **DO NOT ANSWER THE QUESTION.** Only return a rewritten version of the question, maintaining the original intent.
+        2. Only use information from the conversation history if it's RELEVANT to the current question. for example when the user input is ambigious or uses similar keywords if not dont.
+        3. Do NOT include phrases like "based on the conversation" or "context".
+        4. Your output MUST be a single, clean question — nothing else.
 
-            Answer:"""
-        
+        ### INPUTS
+
+        Conversation History:
+        {memory}
+
+        Original Question:
+        {query}
+
+        ### YOUR TASK
+
+        Rewrite the question, incorporating any relevant context:
+
+        Enhanced Question:"""
         response = ollama.generate(
             model=self.model_name,
             prompt=prompt,

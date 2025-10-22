@@ -36,9 +36,9 @@ async def lifespan(app: FastAPI):
     global rag_system
     CHUNK_SIZE = 1200
     CHUNK_OVERLAP = 200
-    TEXT_MODEL = LLM.Ollama_LLM("react-mistral")
-    EMBED_MODEL = E_Model.Ollama_Embedding("nomic-embed-text")
-    IMAGE_MODEL = Image_Model.Image_Model("NOne")
+    TEXT_MODEL = LLM.Ollama_LLM("react-ollama-v4")
+    EMBED_MODEL = E_Model.Ollama_Embedding("mxbai-embed-large")
+    IMAGE_MODEL = Image_Model.Visual_Ollama("llava:7b")
 
     TEXT_SPLITTER = TextSplitter.from_tiktoken_model(
         "gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP

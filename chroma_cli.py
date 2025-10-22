@@ -1,4 +1,7 @@
-from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
+from model_interfaces.Chroma_RAG import Chroma_RAG
+from model_interfaces.LLM import Ollama_LLM
+from model_interfaces.E_Model import Ollama_Embedding
+from model_interfaces.Image_Model import Visual_Ollama
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
@@ -9,11 +12,11 @@ CHUNK_OVERLAP = 200
 
 def main():
 
-    EMBED_MODEL = E_Model.Ollama_Embedding("nomic-embed-text")
+    EMBED_MODEL = Ollama_Embedding("mxbai-embed-large")
 
-    LLM_MODEL = LLM.Ollama_LLM("react_ollama_model")
+    LLM_MODEL = Ollama_LLM("react-ollama")
 
-    IMAGE_MODEL = Image_Model.Image_Model("None")
+    IMAGE_MODEL = Visual_Ollama("llava:13b")
 
     TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
 

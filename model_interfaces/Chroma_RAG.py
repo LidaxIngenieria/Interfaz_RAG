@@ -429,10 +429,21 @@ class Chroma_RAG():
         
         context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
 
-        manual_prompt = f"""Task: ANSWER: Using only the provided context
+        
+
+        manual_prompt = f"""Task: ANSWER
+        Given the follwing
         Context: {context}
 
-        Question: {enhanced_query}
+        Answer the 
+
+        Enhanced_query: {enhanced_query}
+
+        While taking in account the intention of the user, give priority to this query if Enhanced_query has uneeded context:
+    
+        Original_ query: {query}
+
+        If you dont know the answer says so
 
         Answer:"""
 

@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 ### 2. Configurar Frontend React
 
-cd frontend
+cd rag-interface
 npm install
 npm run dev
 

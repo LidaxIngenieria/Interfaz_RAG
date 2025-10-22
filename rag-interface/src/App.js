@@ -5,8 +5,11 @@ import lidaxLogo from './Lidax_logo.svg';
 
 
 
+
+
 function App() {
-  const BACKEND_URL = "http://192.168.1.81:8000";
+  const BACKEND_URL = "http://192.168.1.163:8000";
+  const SOURCE_LENGHT = 300;
   const [query, setQuery] = useState('');
   const [pendingQuery, setPendingQuery] = useState(''); // Holds the query that is currently being processed
   const [response, setResponse] = useState('');
@@ -232,8 +235,8 @@ function App() {
                         </a>
                         {source.content && (
                           <p className="source-preview">
-                            {source.content.length > 150
-                              ? source.content.slice(0, 150) + '…'
+                            {source.content.length > SOURCE_LENGHT
+                              ? source.content.slice(0, SOURCE_LENGHT) + '…'
                               : source.content
                             }
                           </p>
@@ -278,8 +281,8 @@ function App() {
                         </a>
                         {source.content && (
                           <p className="source-preview">
-                            {source.content.length > 150
-                              ? source.content.slice(0, 150) + '…'
+                            {source.content.length > SOURCE_LENGHT
+                              ? source.content.slice(0, SOURCE_LENGHT) + '…'
                               : source.content
                             }
                           </p>

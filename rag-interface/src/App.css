@@ -153,6 +153,32 @@ body {
   font-weight: 500;
   line-height: 1.4;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+ /* 🌟 New: Use Flexbox to separate content */
+  display: flex;
+  flex-direction: column; /* Stack the main content and timestamp vertically */
+  align-items: flex-end; /* Align all nested items (like the timestamp) to the right */
+  white-space: pre-wrap; /* Ensure text wrapping and handling of newlines */
+}
+
+.question-text {
+  /* A new class to wrap the actual question text (see React component fix below) */
+  align-self: flex-start; /* Ensure the text itself starts on the left within the bubble */
+  margin-bottom: 0.25rem; /* Space before the timestamp */
+  width: 100%; /* Ensure it takes full width for wrapping */
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  display: block; /* Ensure it's treated as a block for the alignment above */
+  margin-top: 0.25rem; /* Add a little space above it */
+  text-align: right; /* Redundant due to flex alignment, but good practice */
+  flex-shrink: 0; /* Prevents it from collapsing */
+}
+
+body.dark-mode .timestamp {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .answer {
@@ -173,7 +199,7 @@ body {
 /* Apply question styles to its parent for correct alignment */
 /* .chat-item:has(> .question) {
   align-self: flex-end;
-} */ */
+} */ 
 
 
 .timestamp {
