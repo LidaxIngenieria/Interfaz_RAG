@@ -1,9 +1,11 @@
-from abc import ABC, abstractmethod
-from typing import List
 import ollama
 
+from abc import ABC, abstractmethod
+from typing import List
 
-class E_Model(ABC):
+
+
+class Embedding_Model(ABC):
 
 
     def __init__(self, 
@@ -14,9 +16,17 @@ class E_Model(ABC):
 
     @abstractmethod
     def generate_embeddings(self,texts: List[str]):
+        """
+        Metodo abstracto para la vdb generar embeddings.
+
+        Params:
+            texts (List[str]): Texto para generar embeddings
+
+        """
         pass
 
-class OpenAI_Embedding(E_Model):
+
+class OpenAI_Embedding(Embedding_Model):
 
     def __init__(self, 
                  model_name: str,
@@ -25,17 +35,20 @@ class OpenAI_Embedding(E_Model):
         self.client = client
         super().__init__(model_name)
 
+    #implementar abstracta
+
         
-class Ollama_Embedding(E_Model):
+class Ollama_Embedding(Embedding_Model):
 
     def __init__(self,
                  model_name: str):
         
         super().__init__(model_name)
 
+
     def generate_embeddings(self, texts: List[str]):
         """
-        Genera embeddings para el texto usando el modelo de Ollama especificado.
+        Genera embeddings para la vdb usando el modelo de Ollama especificado.
 
         Params:
             texts (List[str]): Texto para generar embeddings

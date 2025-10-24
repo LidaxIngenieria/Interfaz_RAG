@@ -1,15 +1,15 @@
+import hashlib
+import re
 
 from chromadb import PersistentClient, errors
+from typing import List, Any, Iterator
+
 from model_interfaces.ConversationMemory import ConversationMemory
-from model_interfaces.LLM import LLM
-from model_interfaces.E_Model import  E_Model
-from model_interfaces.Image_Model import Image_Model
-from typing import Iterator
-from typing import List, Any
-import hashlib
-from typing import Iterator
-from model_interfaces.file_readers import smart_doc_processing, expand_directories, smart_doc_for_markdown
-import re
+from model_interfaces.Text_Model import Text_Model
+from model_interfaces.Embedding_Model import  Embedding_Model
+from model_interfaces.Visual_Model import Visual_Model
+from model_interfaces.file_readers import smart_doc_processing, expand_directories
+
 
 
 class Chroma_RAG():
@@ -30,25 +30,34 @@ class Chroma_RAG():
     
 
     def __init__(self, 
-                embedding_model: E_Model, 
-                llm: LLM, 
-                image_model: Image_Model,
-                text_splitter: Any, 
+                embedding_model: Embedding_Model,
+                text_splitter: Any,
+                multimodal_model: Any = None, 
+                text_model: Text_Model= None, 
+                visual_model: Visual_Model = None,
+                query_enhancer: Text_Model= None,
                 reranker: Any= None,
                 k: int= 5,
                 top_k: int= 3,
-                print_documents: bool = False):
+                print_documents: bool = False,
+                keep_memory: bool = False):
         
         self.embedding_model = embedding_model
-        self.llm = llm
-        self.image_model = image_model
         self.text_splitter = text_splitter
+        self.multimodal_model = multimodal_model
+        self.text_model = text_model
+        self.visual_model = visual_model
+        self.query_enhancer = query_enhancer
         self.reranker = reranker
         self.k = k
         self.top_k = top_k
         self.print_documents = print_documents
+        self.keep_memory = keep_memory
+        self.conversation_memory = None
+        self.vector_store = None
 
-        self.conversation_memory = ConversationMemory()
+        if self.keep_memory:
+            self.conversation_memory = ConversationMemory()
 
         try:
 
@@ -84,7 +93,7 @@ class Chroma_RAG():
             return False         
         
     
-    def add_documents(self,file_paths: List[str])-> str:
+    def add_to_vector_store(self,file_paths: List[str])-> str:
         """
         Añade documentos a la base de datos vectorial después de procesarlos en chunks y generar sus embeddings.
 
@@ -141,56 +150,9 @@ class Chroma_RAG():
             return(f"\nError occurred when uploading files: {e}")
         
         
-    def add_markdown(self,file_paths: List[str]) -> str:
-        try:
-
-            i = 1
-            expanded_paths = expand_directories(file_paths)
-            n_files = len(expanded_paths)
-
-            print(f"Uploading files ({n_files})...")
-
-            for path in expanded_paths:
-                if self.is_file_in_store(path):
-                    print(f"\n{path} already on vdb moving to next file")
-                    i += 1
-                    continue
-
-                documents, ids = smart_doc_for_markdown(self.text_splitter,path)
-
-                if documents is None or ids is None:
-                    continue
-                    
-                embeddings = []
-                chunks = []
-                for doc in documents:
-                    content = doc.get("content")
-                    chunks.append(content)
-            
-                embeddings = self.embedding_model.generate_embeddings(chunks)
-            
-                metadatas = []
-                for doc in documents:
-                    metadata = doc.get("metadata")
-                    metadatas.append(metadata)
-                
-                self.vector_store.add(
-                    documents=[doc["content"] for doc in documents],
-                    embeddings=embeddings,
-                    metadatas=metadatas,
-                    ids=ids
-                )
-            
-                print(f"\n{path} uploaded succesfully ({i}/{n_files}).")
-                i += 1
-
-            return("\nAll files succesfully uploaded")
-    
-        except Exception as e:
-            return(f"\nError occurred when uploading files: {e}")
 
         
-    def delete_documents(self, file_paths: List[str]) -> str:
+    def delete_from_vector_store(self, file_paths: List[str]) -> str:
         """
         Elimina documentos de la base de datos vectorial basándose en sus rutas de archivo.
 
@@ -222,7 +184,7 @@ class Chroma_RAG():
             return f"\nError deleting files: {e}"
     
     
-    def update_documents(self, file_paths: List[str]) -> str:
+    def update_from_vector_store(self, file_paths: List[str]) -> str:
         """
         Actualiza documentos existentes en la base de datos vectorial.
 
@@ -294,8 +256,7 @@ class Chroma_RAG():
         )
 
         return results
-        #documents = results['documents'][0]
-        #return documents
+        #Ver mas metodos de retrieval
     
     
     def rerank_documents(self, query: str, init_docs: List[str], init_metadatas: List[dict]) -> List[str]:
@@ -309,6 +270,8 @@ class Chroma_RAG():
         """
 
         pairs = [[query, doc] for doc in init_docs]
+
+       #Alomejor hay que cambiar para otros rerankers 
         
         scores = self.reranker.predict(pairs)
 
@@ -322,7 +285,7 @@ class Chroma_RAG():
     
     
 
-    def invoke(self, query: str) -> None:
+    def invoke(self, query: str, testing:bool = False):
         """
         Metodo para ejecutar la aquitectura RAG. Imprime la respuesta en consola.
 
@@ -330,20 +293,20 @@ class Chroma_RAG():
         query(str): Input de usuario
 
         """
+        if self.keep_memory:
 
-        self.conversation_memory.add_message("user",query)
+            self.conversation_memory.add_message("user",query)
 
-        relevant_messages = self.conversation_memory.get_full_history()
+            relevant_messages = self.conversation_memory.get_full_history()
 
-        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+            conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+            
+            if self.query_enhancer:
+                query = self.llm.enhance_query(query, conversation_history)
 
-        enhanced_query = self.llm.enhance_query(query, conversation_history)
-
-        results = self.retrieve(enhanced_query)
+        results = self.retrieve(query)
         documents = results['documents'][0]
         metadatas = results.get('metadatas', [[]])[0]
-
-        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
 
         if self.reranker:
             
@@ -351,19 +314,25 @@ class Chroma_RAG():
             documents = reranked_docs[:self.top_k]
             metadatas = reranked_metadatas[:self.top_k]
 
-        manual_prompt = f"""Task: ANSWER: Using only the provided context
-        Context: {context}
+        retrieval_context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
 
-        Question: {enhanced_query}
+        manual_prompt = f"""Task: ANSWER: Using only the provided context
+        Context: {retrieval_context}
+
+        Question: {query}
 
         Answer:"""
 
         stream = self.llm.generate_stream(manual_prompt)
 
-        full_response = self.llm.get_full_response(stream, bool_print=True)
+        bool_print = True
 
-        if full_response:
+        if testing:
+            bool_print = False
 
+        full_response = self.llm.get_full_response(stream, bool_print= bool_print)
+
+        if full_response and self.keep_memory:
             self.conversation_memory.add_message("system", full_response)
 
         if self.print_documents:
@@ -374,109 +343,43 @@ class Chroma_RAG():
                 print(f"\nDocument {i+1}: {file_path}")
 
 
+        if testing:
 
-    def invoke_for_testing(self, query: str) -> dict:
-        """
-        Metodo para ejecutar la aqruitectura RAG. Devuelve la respuesta en un dict que REACT puede interpretar.
+            sources = []
 
-        Params:
-        query(str): Input de usuario
-
-        Return -> dict
-
-        {
-            "answer": full_response, (str)
-            "sources": sources,  (List[Dict]) ->   {"id": int, "title": str, "content": str}
-            "query": query  (str)
-        }
-
-        """
-        
-        self.conversation_memory.add_message("user",query)
-
-        relevant_messages = self.conversation_memory.get_full_history()
-
-        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
-
-        enhanced_query = self.llm.enhance_query(query,conversation_history)
-
-        results = self.retrieve(enhanced_query)
-        documents = results['documents'][0]
-        metadatas = results.get('metadatas', [[]])[0]
-
-        if self.reranker:
-
-            reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
-            documents = reranked_docs[:self.top_k]
-            metadatas = reranked_metadatas[:self.top_k]
             
-        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
-
-        manual_prompt= f"""Task: ANSWER: Using only the provided context
-        Context: {context}
-
-        Question: {enhanced_query}
-
-        Answer:"""
-
-        stream = self.llm.generate_stream(manual_prompt)
-
-        full_response = self.llm.get_full_response(stream)
-
-        if full_response:
-
-            self.conversation_memory.add_message("system", full_response)
-
-        sources = []
-
-        for i, (metadata, doc_content) in enumerate(zip(metadatas, documents)):
-            sources.append({
+            for i, (metadata, doc_content) in enumerate(zip(metadatas, documents)):
+                sources.append({
                 "id": i + 1,
                 "title": metadata.get('source', f"Document {i+1}"),
                 "content": doc_content
                 #"content": doc_content[:200] + "..." if len(doc_content) > 200 else doc_content
-            })
-
+                })
         
-        if self.print_documents:
-            print("\nDocuments used:")
-            for i, metadata in enumerate(metadatas):
-                file_path = metadata.get('source', f"Document {i+1}")
-                print(f"\nDocument {i+1}: {file_path}")
-
-        
-        return {
-            "answer": full_response,
-            "sources": sources,  
-            "query": query  
-        }
-    
-
-    def _format_sources(self, documents: list, metadatas: list) -> list:
-
-        formatted_sources = []
-        for doc, meta in zip(documents, metadatas):
-            formatted_sources.append({
-                "title": meta.get('source'),
-                "link": meta.get('link', '#'),
-                "content": doc,
-            })
-        return formatted_sources
-    
+            return{
+                "answer": full_response,
+                "sources": sources,  
+                "query": query  
+            }
 
 
-    def invoke_as_stream(self, query: str) -> Iterator[dict]:
+
+    def invoke_for_frontend(self, query: str) -> Iterator[dict]:
         """
-        Handles RAG logic and streams the response chunks and final sources 
-        as structured dictionaries.
-        """
-        self.conversation_memory.add_message("user", query)
-        
-        # 1. Prepare RAG Context (Non-streaming part)
-        relevant_messages = self.conversation_memory.get_full_history()
-        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+        Metodo para ejcutar codigo para el frontend deolviendo Iterators que REACT puede interpretar
 
-        # enhanced_query = self.llm.enhance_query(query,conversation_history)
+        Params:
+            query(str)
+        """
+
+        if self.keep_memory:
+
+            self.conversation_memory.add_message("user", query)
+            
+            relevant_messages = self.conversation_memory.get_full_history()
+            conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
+
+            query = self.query_enhancer.enhance_query(query,conversation_history)
         
         results = self.retrieve(query)
         documents = results['documents'][0]
@@ -487,125 +390,63 @@ class Chroma_RAG():
             documents = reranked_docs[:self.top_k]
             metadatas = reranked_metadatas[:self.top_k]
         
-        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
-
-        
-
-        manual_prompt = f"""Task: ANSWER
-        Given the follwing
-        Context: {context}
-
-        Answer the 
-    
-        Original_ query: {query}
-
-        If you dont know the answer says so
-
-        Answer:"""
-
-        # 2. Get the LLM stream (an iterator)
-        llm_stream = self.llm.generate_stream(manual_prompt) # This calls ollama.generate(..., stream=True)
-
-        # 3. Stream text chunks as structured data
-        full_response = ""
-        for chunk in llm_stream:
-            # 🛑 Ensure 'chunk' here is a dictionary, not a string representation of one 🛑
-            # If it's a string, you might have to parse it, but that's complex and usually unnecessary.
-            
-            # Assuming it IS a dictionary:
-            chunk_text = chunk.get('response', '') 
-
-            full_response += chunk_text
-            print(full_response)
-            
-            # 🛑 Yield a dictionary 🛑
-            yield {"type": "chunk", "content": chunk_text}
-
-            # Accumulate text for memory
-
-
-        # 4. Update memory AFTER the stream is fully consumed
-        if full_response:
-            self.conversation_memory.add_message("system", full_response)
-
-        if self.print_documents:
-
-            print("\nDocument used:\n")
-
-            for i, doc in enumerate(documents):
-                print(f"\nDOCUMENT {i+1}:")
-                print(f"\n{doc}\n\n{"-"*100}")
- 
-            
-        # 5. Calculate and yield final sources JSON
-        formatted_sources = self._format_sources(documents, metadatas)
-        # 🛑 Yield the final dictionary containing sources 🛑
-        yield {"type": "final", "sources": formatted_sources, "query": query}
-
-
-
-    def invoke_stream_with_images(self, query: str) -> Iterator[dict]:
-
-        self.conversation_memory.add_message("user", query)
-        
-        # 1. Prepare RAG Context (Non-streaming part)
-        relevant_messages = self.conversation_memory.get_full_history()
-        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
-
-        enhanced_query = self.llm.enhance_query(query,conversation_history)
-        
-        results = self.retrieve(enhanced_query)
-        documents = results['documents'][0]
-        metadatas = results['metadatas'][0]
-
-        if self.reranker:
-            reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
-            documents = reranked_docs[:self.top_k]
-            metadatas = reranked_metadatas[:self.top_k]
-        
-        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
+        retrieved_context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
 
         pattern = r'!\s*\[\]\s*\((images/[^)]+\.png)\)'
-        image_references = re.findall(pattern, context)
+        image_references = re.findall(pattern, retrieved_context)
         
         if image_references:
             yield {"type": "images", "content": image_references}
 
+            if self.visual_model:
+                captions = self.image_model.image_to_text(image_references, query)
 
-        manual_prompt = f"""Task: ANSWER
-        Given the follwing
-        Context: {context}
 
-        Answer the 
+        SYSTEM_PROMPT_GPT = f"""
 
-        Enhanced_query: {enhanced_query}
+            You are an expert Q&A assistant. Your task is to answer the user's question ONLY using the provided context.
+            If the answer cannot be found in the context, you must state that the information is not available in the provided documents.
 
-        While taking in account the intention of the user, give priority to this query if Enhanced_query has uneeded context:
-    
-        Original_ query: {query}
+            --- CONTEXT ---
+            {retrieved_context}
+            --- END CONTEXT ---
 
-        Answer:"""
+            Please answer the following question:
+            {query}
+        """
 
-        # 2. Get the LLM stream (an iterator)
-        llm_stream = self.llm.generate_stream(manual_prompt) # This calls ollama.generate(..., stream=True)
+        SYSTEM_PROMPT_MISTRAL = f"""
+        <s>[INST]
+        You are a helpful, accurate, and concise question-answering assistant.
+        Your task is to answer the user's question ONLY based on the context provided below.
+        If the context does not contain the answer, state clearly, "I cannot find the answer in the provided documents."
 
-        # 3. Stream text chunks as structured data
+        --- CONTEXT ---
+        {retrieved_context}
+        --- END CONTEXT ---
+
+        Question: {query}
+
+        Answer:
+        [/INST]
+        """
+
+
+        llm_stream = self.text_model.generate_stream(SYSTEM_PROMPT_MISTRAL) 
+
+
         full_response = ""
         for chunk in llm_stream:
-            # 🛑 Ensure 'chunk' here is a dictionary, not a string representation of one 🛑
-            # If it's a string, you might have to parse it, but that's complex and usually unnecessary.
-            
-            # Assuming it IS a dictionary:
+
             chunk_text = chunk.get('response', '') 
             
-            # 🛑 Yield a dictionary 🛑
+
             yield {"type": "chunk", "content": chunk_text}
 
-            # Accumulate text for memory
             full_response += chunk_text
 
-        # 4. Update memory AFTER the stream is fully consumed
-        if full_response:
+
+        if full_response and self.keep_memory:
             self.conversation_memory.add_message("system", full_response)
 
         if self.print_documents:
@@ -615,129 +456,61 @@ class Chroma_RAG():
             for i, doc in enumerate(documents):
                 print(f"\nDOCUMENT {i+1}:")
                 print(f"\n{doc}\n\n{"-"*100}")
- 
+
+
+        def _format_sources( documents: list, metadatas: list) -> list:
+            """
+            Funcion ayudante para formetear las fuentes de forma que el frontend pueda procesar
             
-        # 5. Calculate and yield final sources JSON
-        formatted_sources = self._format_sources(documents, metadatas)
-        # 🛑 Yield the final dictionary containing sources 🛑
-        yield {"type": "final", "sources": formatted_sources, "query": query}
+            Params:
+                documents(list)
+                metadatas(list)
+                
+            """
 
-
-    def invoke_image_interpretation(self, query: str) -> Iterator[dict]:
-
-        self.conversation_memory.add_message("user", query)
-        
-        # 1. Prepare RAG Context (Non-streaming part)
-        relevant_messages = self.conversation_memory.get_full_history()
-        conversation_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in relevant_messages])
-
-        enhanced_query = self.llm.enhance_query(query,conversation_history)
-        
-        results = self.retrieve(enhanced_query)
-        documents = results['documents'][0]
-        metadatas = results['metadatas'][0]
-
-        if self.reranker:
-            reranked_docs, reranked_metadatas = self.rerank_documents(query, documents, metadatas)
-            documents = reranked_docs[:self.top_k]
-            metadatas = reranked_metadatas[:self.top_k]
-        
-        context = "\n".join([f"Document {i+1}: {doc}" for i, doc in enumerate(documents)])
-
-        pattern = r'!\s*\[\]\s*\((images/[^)]+\.png)\)'
-        image_references = re.findall(pattern, context)
-        
-        if image_references:
-            yield {"type": "images", "content": image_references}
-
-        captions = self.image_model.image_to_text(image_references, enhanced_query)
-        print(f"\n\nCAPIONS: {captions}")
-
-
-        manual_prompt = f"""Task: ANSWER
-        Given the follwing
-        Context: {context}
-
-        Also taking in account the captions generated from the images, but always give more importance to the information in Context:
-        Image_Captions: {captions}
-
-        Answer the 
-
-        Enhanced_query: {enhanced_query}
-
-        While taking in account the intention of the user, give priority to this query if Enhanced_query has uneeded context:
+            formatted_sources = []
+            for doc, meta in zip(documents, metadatas):
+                formatted_sources.append({
+                    "title": meta.get('source'),
+                    "link": meta.get('link', '#'),
+                    "content": doc,
+                })
+            return formatted_sources
     
-        Original_ query: {query}
-
-
-        Answer:"""
-
-        # 2. Get the LLM stream (an iterator)
-        llm_stream = self.llm.generate_stream(manual_prompt) # This calls ollama.generate(..., stream=True)
-
-        # 3. Stream text chunks as structured data
-        full_response = ""
-        for chunk in llm_stream:
-            # 🛑 Ensure 'chunk' here is a dictionary, not a string representation of one 🛑
-            # If it's a string, you might have to parse it, but that's complex and usually unnecessary.
-            
-            # Assuming it IS a dictionary:
-            chunk_text = chunk.get('response', '') 
-            
-            # 🛑 Yield a dictionary 🛑
-            yield {"type": "chunk", "content": chunk_text}
-
-            # Accumulate text for memory
-            full_response += chunk_text
-
-        # 4. Update memory AFTER the stream is fully consumed
-        if full_response:
-            self.conversation_memory.add_message("system", full_response)
-
-        if self.print_documents:
-
-            print("\nDocument used:\n")
-
-            for i, doc in enumerate(documents):
-                print(f"\nDOCUMENT {i+1}:")
-                print(f"\n{doc}\n\n{"-"*100}")
  
             
-        # 5. Calculate and yield final sources JSON
-        formatted_sources = self._format_sources(documents, metadatas)
-        # 🛑 Yield the final dictionary containing sources 🛑
+        formatted_sources = _format_sources(documents, metadatas)
         yield {"type": "final", "sources": formatted_sources, "query": query}
 
 
 
+# def main():
+#     file_path = "lidax_pdf/08 - INT_LDX_ISD_TEC_009__2-1_Diseño de Taladros.pdf"
 
-def main():
-    file_path = "lidax_pdf/08 - INT_LDX_ISD_TEC_009__2-1_Diseño de Taladros.pdf"
 
-
-    from LLM import Ollama_LLM
-    from E_Model import Ollama_Embedding
-    from Image_Model import Visual_Ollama
-    from sentence_transformers import CrossEncoder
-    from langchain_text_splitters import MarkdownTextSplitter
+#     from LLM import Ollama_LLM
+#     from E_Model import Ollama_Embedding
+#     from Image_Model import Visual_Ollama
+#     from sentence_transformers import CrossEncoder
+#     from langchain_text_splitters import MarkdownTextSplitter
 
     
-    TEXT_SPLITTER =  MarkdownTextSplitter()# TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
+#     TEXT_SPLITTER =  MarkdownTextSplitter()# TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
 
-    RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+#     RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
-    TEXT_MODEL = Ollama_LLM("react-ollama-v4")
-    EMBED_MODEL = Ollama_Embedding("mxbai-embed-large")
-    IMAGE_MODEL = Visual_Ollama("llava:7b")
+#     TEXT_MODEL = Ollama_LLM("react-ollama-v4")
+#     EMBED_MODEL = Ollama_Embedding("mxbai-embed-large")
+#     IMAGE_MODEL = Visual_Ollama("llava:7b")
 
-    rag = Chroma_RAG(EMBED_MODEL,TEXT_MODEL,IMAGE_MODEL,TEXT_SPLITTER,RERANKER, print_documents= True)
+#     rag = Chroma_RAG(EMBED_MODEL,TEXT_MODEL,IMAGE_MODEL,TEXT_SPLITTER,RERANKER, print_documents= True)
 
-    print("Check 1")
-
-
-    text =rag.add_markdown([file_path])
-    print(text)
+#     print("Check 1")
 
 
-if __name__ == "__main__":
-    main()
+#     text =rag.add_markdown([file_path])
+#     print(text)
+
+
+# if __name__ == "__main__":
+#     main()

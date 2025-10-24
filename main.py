@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 load_dotenv()
 
 # Import your existing RAG code
-from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
+from model_interfaces import Chroma_RAG, Embedding_Model, Text_Model, Visual_Model
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
@@ -37,9 +37,10 @@ async def lifespan(app: FastAPI):
     global rag_system
     CHUNK_SIZE = 1200
     CHUNK_OVERLAP = 200
-    TEXT_MODEL = LLM.Ollama_LLM("react-gpt-v2")
-    EMBED_MODEL = E_Model.Ollama_Embedding("mxbai-embed-large")
-    IMAGE_MODEL = Image_Model.Visual_Ollama("llava:13b")
+    TEXT_MODEL = Text_Model.Ollama_LLM("mistral:7b") #gpt-oss:20b
+    ENHANCER = Text_Model.Ollama_LLM("mistral:7b")
+    EMBED_MODEL = Embedding_Model.Ollama_Embedding("mxbai-embed-large")
+    #IMAGE_MODEL = Visual_Model.Visual_Ollama("llava:13b")
 
     TEXT_SPLITTER = TextSplitter.from_tiktoken_model(
         "gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP
@@ -47,7 +48,7 @@ async def lifespan(app: FastAPI):
     RERANKER = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     print("Initializing RAG system...")
-    rag_system = Chroma_RAG.Chroma_RAG(EMBED_MODEL, TEXT_MODEL, IMAGE_MODEL, TEXT_SPLITTER, RERANKER)
+    rag_system = Chroma_RAG.Chroma_RAG(embedding_model= EMBED_MODEL, text_splitter= TEXT_SPLITTER, text_model= TEXT_MODEL, query_enhancer= ENHANCER,reranker= RERANKER, k = 8, top_k = 3, keep_memory= True )
     print("RAG system initialized successfully!")
 
     yield
@@ -99,7 +100,7 @@ async def query_rag_stream(request: QueryRequest):
     def generate_stream():
         try:
             # rag_system.invoke_as_stream yields Python dicts: {"type": "chunk", "content": "..."} or {"type": "final", "sources": [...]}
-            stream = rag_system.invoke_as_stream(request.query)
+            stream = rag_system.invoke_for_frontend(request.query)
             
             for item in stream:
                 # 🛑 CRITICAL FIX: Explicitly serialize the Python dictionary to a JSON line 🛑

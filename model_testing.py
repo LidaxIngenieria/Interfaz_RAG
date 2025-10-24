@@ -1,10 +1,16 @@
+import time
+import os
+
 from model_interfaces.Chroma_RAG import Chroma_RAG
-from model_interfaces.LLM import Ollama_LLM
-from model_interfaces.E_Model import Ollama_Embedding
-from model_interfaces.Image_Model import Visual_Ollama
+from model_interfaces.Text_Model import Ollama_LLM
+from model_interfaces.Embedding_Model import Ollama_Embedding
+from model_interfaces.Visual_Model import Visual_Ollama
+
+
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 from langchain_text_splitters import MarkdownTextSplitter
+
 import time
 import os
 
@@ -27,7 +33,7 @@ def main():
     EMBED_MODEL = Ollama_Embedding("mxbai-embed-large")
     IMAGE_MODEL = Visual_Ollama("llava:7b")
 
-    rag = Chroma_RAG(EMBED_MODEL,TEXT_MODEL,IMAGE_MODEL,TEXT_SPLITTER,RERANKER, print_documents= True)
+    #rag =
 
 
 
@@ -45,19 +51,19 @@ def main():
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        output_file = f"{OUTPUT_DIR}/respuestas_{rag.llm.model_name}_{rag.embedding_model.model_name}_{rag.k}_{rag.top_k}.txt"
+        output_file = f"{OUTPUT_DIR}/respuestas_{rag.text_model.model_name}_{rag.embedding_model.model_name}_{rag.k}_{rag.top_k}.txt"
 
 
         with open(output_file, 'w', encoding='utf-8') as file:
 
-            file.write(f"Respuestas de {rag.llm.model_name} with {rag.embedding_model.model_name}\n\n")
+            file.write(f"Respuestas de {rag.text_model.model_name} with {rag.embedding_model.model_name}\n\n")
             file.write(f"Parametros: k={rag.k}, top_k={rag.top_k}, chunk_size={CHUNK_SIZE}, chunk_overlap={CHUNK_OVERLAP}\n\n")
 
             total_time = 0
 
             for i, paragraph in enumerate(paragraphs):
                 start = time.time()
-                dict_response = rag.invoke_for_testing(paragraph)
+                dict_response = rag.invoke(paragraph, testing= True)
                 end = time.time()
                 elapsed = end - start
                 total_time += elapsed

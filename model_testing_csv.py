@@ -1,9 +1,16 @@
-from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
-from semantic_text_splitter import TextSplitter
-from sentence_transformers import CrossEncoder
 import csv
 import time
 import os
+
+
+from model_interfaces.Chroma_RAG import Chroma_RAG
+from model_interfaces.Text_Model import Text_Model
+from model_interfaces.Embedding_Model import Embedding_Model
+from model_interfaces.Visual_Model import Visual_Model
+
+from semantic_text_splitter import TextSplitter
+from sentence_transformers import CrossEncoder
+
 
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 200
@@ -30,10 +37,10 @@ def main():
     paragraphs = text.split("\n")
 
     for rag in rag_models:
-        print(f"\nProcessing with model: {rag.llm} | Embedding: {rag.embedding_model} | k={rag.k}, top_k={rag.top_k}")
+        print(f"\nProcessing with model: {rag.text_model.model_name} | Embedding: {rag.embedding_model.model_name} | k={rag.k}, top_k={rag.top_k}")
 
         file_list = ["./lidax_pdf"]
-        rag.add_documents(file_list)
+        rag.add_to_vector_store(file_list)
 
 
 
@@ -41,7 +48,7 @@ def main():
         fieldnames = ["question", "answer", "elapsed_time"]
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
-        output_file = f"{OUTPUT_DIR}/respuestas_{rag.llm}_{rag.embedding_model}_{rag.k}_{rag.top_k}.csv"
+        output_file = f"{OUTPUT_DIR}/respuestas_{rag.text_model.model_name}_{rag.embedding_model.model_name}_{rag.k}_{rag.top_k}.csv"
         
 
 
@@ -54,7 +61,7 @@ def main():
             for i, paragraph in enumerate(paragraphs):
 
                 start = time.time()
-                dict_response = rag.invoke_for_testing(paragraph)
+                dict_response = rag.invoke(paragraph,testing=True)
                 end = time.time()
                 elapsed = end - start
                 total_time += elapsed

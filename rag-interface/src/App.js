@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 // Import your PNG image
 import lidaxLogo from './Lidax_logo.svg'; 
+import ReactMarkdown from 'react-markdown';
 
 function App() {
     const BACKEND_URL = "http://192.168.1.163:8000";
@@ -230,7 +231,8 @@ function App() {
                                 <span className="timestamp">{chat.timestamp}</span>
                             </div>
                             <div className="answer">
-                                {chat.answer}
+                                {/*{chat.answer} */}
+                                <ReactMarkdown>{chat.answer}</ReactMarkdown>
                             </div>
 
                             {/* Render IMAGES for completed chat item */}
@@ -292,7 +294,7 @@ function App() {
                             {/* 3. Render the streaming answer */}
                             {(response || loading) && (
                                 <div className="answer">
-                                    {loading && !response ? <span className="thinking-indicator"></span> : response}
+                                    {loading && !response ? <span className="thinking-indicator"></span> : <ReactMarkdown>{response}</ReactMarkdown>}
                                 </div>
                             )}
                             

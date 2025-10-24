@@ -1,7 +1,9 @@
 from model_interfaces.Chroma_RAG import Chroma_RAG
-from model_interfaces.LLM import Ollama_LLM
-from model_interfaces.E_Model import Ollama_Embedding
-from model_interfaces.Image_Model import Visual_Ollama
+from model_interfaces.Text_Model import Ollama_LLM
+from model_interfaces.Embedding_Model import Ollama_Embedding
+from model_interfaces.Visual_Model import Visual_Ollama
+
+
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
 
@@ -22,7 +24,7 @@ def main():
 
     RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
-    rag = Chroma_RAG(EMBED_MODEL,LLM_MODEL, IMAGE_MODEL, TEXT_SPLITTER, RERANKER,k=7,top_k=3,print_documents=True)
+    #rag =
 
 
     while True:
