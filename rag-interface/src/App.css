@@ -427,3 +427,23 @@ body.dark-mode .source-preview {
     padding: 0.8rem 1.2rem;
   }
 }
+
+.image-list {
+  display: flex; /* Lines up children horizontally */
+  overflow-x: auto; /* Adds a horizontal scrollbar *if needed* */
+  padding-bottom: 10px; /* Adds a little space for the scrollbar */
+  gap: 12px; /* Adds space *between* each image */
+}
+
+.referenced-image {
+  max-height: 200px; /* Controls the size. Adjust as you like */
+  width: auto; /* Keeps the aspect ratio */
+  border-radius: 8px; /* Nice rounded corners */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adds a subtle shadow */
+  cursor: pointer; /* Makes it feel clickable */
+  transition: transform 0.2s ease; /* Smooth hover effect */
+}
+
+.referenced-image:hover {
+  transform: scale(1.05); /* Slightly enlarge on hover */
+}

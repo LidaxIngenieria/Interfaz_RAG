@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi.responses import StreamingResponse
 import json
 import asyncio
+from fastapi.staticfiles import StaticFiles
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,9 +37,9 @@ async def lifespan(app: FastAPI):
     global rag_system
     CHUNK_SIZE = 1200
     CHUNK_OVERLAP = 200
-    TEXT_MODEL = LLM.Ollama_LLM("react-ollama-v4")
+    TEXT_MODEL = LLM.Ollama_LLM("react-gpt-v2")
     EMBED_MODEL = E_Model.Ollama_Embedding("mxbai-embed-large")
-    IMAGE_MODEL = Image_Model.Visual_Ollama("llava:7b")
+    IMAGE_MODEL = Image_Model.Visual_Ollama("llava:13b")
 
     TEXT_SPLITTER = TextSplitter.from_tiktoken_model(
         "gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap=CHUNK_OVERLAP
@@ -67,6 +68,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 @app.get("/")
 async def root():

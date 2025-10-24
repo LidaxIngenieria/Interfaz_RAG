@@ -126,9 +126,10 @@ class Ollama_LLM(LLM):
 
         ### RULES:
         1. **DO NOT ANSWER THE QUESTION.** Only return a rewritten version of the question, maintaining the original intent.
-        2. Only use information from the conversation history if it's RELEVANT to the current question. for example when the user input is ambigious or uses similar keywords if not dont.
+        2. Only use information from the conversation history if it's RELEVANT to the current question. for example when the user input is ambigious or uses similar keywords.
         3. Do NOT include phrases like "based on the conversation" or "context".
         4. Your output MUST be a single, clean question — nothing else.
+        5. Always make sure to keep the users intention with the original queston in mind when generating the enhanced version
 
         ### INPUTS
 
@@ -150,7 +151,7 @@ class Ollama_LLM(LLM):
     
         enhanced_query = response['response']
 
-        print(enhanced_query)
+        print(f"\nENHANCED QUERY: {enhanced_query}\n\n{"-"*100}")
                     
         return enhanced_query
         

@@ -1,6 +1,10 @@
-from model_interfaces import Chroma_RAG, LLM, E_Model, Image_Model
+from model_interfaces.Chroma_RAG import Chroma_RAG
+from model_interfaces.LLM import Ollama_LLM
+from model_interfaces.E_Model import Ollama_Embedding
+from model_interfaces.Image_Model import Visual_Ollama
 from semantic_text_splitter import TextSplitter
 from sentence_transformers import CrossEncoder
+from langchain_text_splitters import MarkdownTextSplitter
 import time
 import os
 
@@ -15,20 +19,25 @@ OUTPUT_DIR = "respuestas_txt" #carpeta donde se guardan los archivos txt
 
 def main():
 
-    TEXT_SPLITTER = TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
+    TEXT_SPLITTER =  MarkdownTextSplitter()# TextSplitter.from_tiktoken_model("gpt-3.5-turbo", capacity=CHUNK_SIZE, overlap= CHUNK_OVERLAP)
 
     RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 
-    #rag
+    TEXT_MODEL = Ollama_LLM("react-ollama-v4")
+    EMBED_MODEL = Ollama_Embedding("mxbai-embed-large")
+    IMAGE_MODEL = Visual_Ollama("llava:7b")
+
+    rag = Chroma_RAG(EMBED_MODEL,TEXT_MODEL,IMAGE_MODEL,TEXT_SPLITTER,RERANKER, print_documents= True)
 
 
 
-    rag_models = []
+    rag_models = [rag]
 
 
     for rag in rag_models:
         file_list = ["./lidax_pdf"]
-        rag.add_documents(file_list)
+        re_txt = rag.add_markdown(file_list)
+        print(re_txt)
         with open(TEST_FILE, "r", encoding="utf-8") as txt_file:
             text = txt_file.read()
 
@@ -36,12 +45,12 @@ def main():
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        output_file = f"{OUTPUT_DIR}/respuestas_{rag.llm}_{rag.embedding_model}_{rag.k}_{rag.top_k}.txt"
+        output_file = f"{OUTPUT_DIR}/respuestas_{rag.llm.model_name}_{rag.embedding_model.model_name}_{rag.k}_{rag.top_k}.txt"
 
 
         with open(output_file, 'w', encoding='utf-8') as file:
 
-            file.write(f"Respuestas de {rag.llm} with {rag.embedding_model}\n\n")
+            file.write(f"Respuestas de {rag.llm.model_name} with {rag.embedding_model.model_name}\n\n")
             file.write(f"Parametros: k={rag.k}, top_k={rag.top_k}, chunk_size={CHUNK_SIZE}, chunk_overlap={CHUNK_OVERLAP}\n\n")
 
             total_time = 0

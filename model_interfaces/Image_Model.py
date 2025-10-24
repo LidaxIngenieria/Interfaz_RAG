@@ -21,15 +21,16 @@ class Visual_Ollama(Image_Model):
 
         super().__init__(model_name)
 
-    def image_to_text(self,image):
+    def image_to_text(self,images,query):
 
         result = ollama.chat(
 
             model= self.model_name,
             messages=[
                 {
-                    'content': 'Describe this image:',
-                    'images': [image]
+                    'role': "user",
+                    'content': f'Describe any information in the images that might relevant to this query from the user, IT IS IMPERATIVE THAT YOU ONLY RETURN INFORMATION CONTAINED IN THE IMAGES DONT ADD ANYTHING ELSE: {query}',
+                    'images': images
                 }
 	        ]
         )
